@@ -23,6 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 const Settings: React.FC = () => {
   const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
@@ -46,25 +47,24 @@ const Settings: React.FC = () => {
   const handlePersonalInfoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Logic to save personal info
-    console.log('Personal info updated:', formData);
+    toast.success('Personal information updated successfully');
   };
 
   const handleChangePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Logic to change password
-    console.log('Changing password');
+    toast.success('Password changed successfully');
   };
 
   const handleResetPasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Logic to reset password
-    console.log('Reset password email sent to:', formData.resetPasswordEmail);
+    toast.success('Password reset link sent to your email');
     setShowResetPasswordDialog(false);
   };
 
   const handleLogout = () => {
     // Logic to log out
-    console.log('Logging out');
     window.location.href = '/';
   };
 
@@ -222,9 +222,9 @@ const Settings: React.FC = () => {
       
       {/* Reset Password Dialog */}
       <Dialog open={showResetPasswordDialog} onOpenChange={setShowResetPasswordDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Reset Password</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">Reset Password</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleResetPasswordSubmit}>
             <div className="py-4">
@@ -239,6 +239,7 @@ const Settings: React.FC = () => {
                 value={formData.resetPasswordEmail}
                 onChange={handleChange}
                 className="mt-1"
+                placeholder="Enter your email"
               />
             </div>
             <DialogFooter>
@@ -257,16 +258,21 @@ const Settings: React.FC = () => {
       
       {/* Logout Confirmation Dialog */}
       <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to log out?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-xl font-semibold">Are you sure you want to log out?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-600">
               You will be logged out of your account on this device.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleLogout}>Log Out</AlertDialogAction>
+            <AlertDialogCancel className="font-medium">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleLogout} 
+              className="bg-primary text-white hover:bg-primary/90"
+            >
+              Log Out
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
