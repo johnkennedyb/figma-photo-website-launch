@@ -1,11 +1,20 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 
 const Index = () => {
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    // Redirect to welcome page
+    navigate('/');
+  }, [navigate]);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-600 to-teal-400">
+      <div className="text-white text-center">
+        <h1 className="text-4xl font-bold mb-4">Quluub</h1>
+        <p className="text-xl">Loading counseling platform...</p>
       </div>
     </div>
   );

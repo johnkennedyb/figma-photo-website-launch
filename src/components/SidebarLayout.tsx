@@ -1,0 +1,77 @@
+
+import React, { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { LayoutDashboard, Users, Calendar, MessageSquare, LogOut } from 'lucide-react';
+import QuluubLogo from './QuluubLogo';
+
+interface SidebarLayoutProps {
+  children: ReactNode;
+  activePath: string;
+}
+
+const SidebarLayout: React.FC<SidebarLayoutProps> = ({ 
+  children,
+  activePath
+}) => {
+  const navItems = [
+    { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+    { path: '/counselors', label: 'Counsellors', icon: <Users size={20} /> },
+    { path: '/sessions', label: 'Sessions', icon: <Calendar size={20} /> },
+    { path: '/messages', label: 'Messages', icon: <MessageSquare size={20} /> },
+    { path: '/logout', label: 'LogOut', icon: <LogOut size={20} /> },
+  ];
+
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-sidebar text-sidebar-foreground">
+        <div className="p-6">
+          <QuluubLogo variant="white" />
+        </div>
+        
+        <div className="px-4 py-6">
+          {/* User profile preview */}
+          <div className="flex items-center mb-8">
+            <div className="w-10 h-10 rounded-full bg-sidebar-accent flex items-center justify-center">
+              <span className="text-sidebar-accent-foreground text-sm">QC</span>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium">Quluub Client</p>
+              <p className="text-xs opacity-70">client@quluub.com</p>
+            </div>
+          </div>
+          
+          {/* Navigation */}
+          <nav className="space-y-1">
+            {navItems.map((item) => (
+              <Link 
+                key={item.path} 
+                to={item.path}
+                className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
+                  activePath === item.path 
+                    ? 'bg-sidebar-accent text-white font-medium' 
+                    : 'hover:bg-sidebar-accent/50'
+                }`}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </Link>
+            ))}
+          </nav>
+        </div>
+        
+        {/* Footer logo */}
+        <div className="mt-auto p-6 pb-4 absolute bottom-0">
+          <QuluubLogo size="sm" variant="white" withText={false} />
+        </div>
+      </aside>
+      
+      {/* Main content */}
+      <main className="flex-1 p-6">
+        {children}
+      </main>
+    </div>
+  );
+};
+
+export default SidebarLayout;
