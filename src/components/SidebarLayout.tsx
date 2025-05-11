@@ -1,8 +1,9 @@
 
 import React, { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, MessageSquare, LogOut } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { LayoutDashboard, Users, Calendar, MessageSquare, Settings, LogOut } from 'lucide-react';
 import QuluubLogo from './QuluubLogo';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 
 interface SidebarLayoutProps {
   children: ReactNode;
@@ -13,13 +14,21 @@ const SidebarLayout: React.FC<SidebarLayoutProps> = ({
   children,
   activePath
 }) => {
+  const [showLogoutDialog, setShowLogoutDialog] = React.useState(false);
+  const location = useLocation();
+
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { path: '/counselors', label: 'Counsellors', icon: <Users size={20} /> },
     { path: '/sessions', label: 'Sessions', icon: <Calendar size={20} /> },
-    { path: '/messages', label: 'Messages', icon: <MessageSquare size={20} /> },
-    { path: '/logout', label: 'LogOut', icon: <LogOut size={20} /> },
+    { path: '/chat', label: 'Messages', icon: <MessageSquare size={20} /> },
+    { path: '/settings', label: 'Settings', icon: <Settings size={20} /> },
   ];
+
+  const handleLogout = () => {
+    // Logic to log out
+    window.location.href = '/';
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -48,7 +57,7 @@ const SidebarLayout: React.FC<SidebarLayoutProps> = ({
                 key={item.path} 
                 to={item.path}
                 className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-                  activePath === item.path 
+                  (activePath === item.path || location.pathname.startsWith(item.path)) 
                     ? 'bg-sidebar-accent text-white font-medium' 
                     : 'hover:bg-sidebar-accent/50'
                 }`}
@@ -57,6 +66,14 @@ const SidebarLayout: React.FC<SidebarLayoutProps> = ({
                 <span>{item.label}</span>
               </Link>
             ))}
+            
+            <button 
+              onClick={() => setShowLogoutDialog(true)}
+              className="flex items-center gap-3 px-4 py-3 rounded-md transition-colors w-full text-left hover:bg-sidebar-accent/50"
+            >
+              <LogOut size={20} />
+              <span>Log Out</span>
+            </button>
           </nav>
         </div>
         
@@ -70,6 +87,22 @@ const SidebarLayout: React.FC<SidebarLayoutProps> = ({
       <main className="flex-1 p-6">
         {children}
       </main>
+      
+      {/* Logout Confirmation Dialog */}
+      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to log out?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will be logged out of your account on this device.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogout}>Log Out</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

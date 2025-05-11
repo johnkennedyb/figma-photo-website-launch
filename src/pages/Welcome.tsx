@@ -8,7 +8,7 @@ const Welcome: React.FC = () => {
   return (
     <AuthLayout 
       imageSrc="/lovable-uploads/c47151cc-f491-4b1e-82ef-1ef8d837d9ba.png" 
-      heading="Welcome!"
+      heading="Welcome to Quluub!"
     >
       <div className="flex flex-col space-y-4">
         <p className="text-gray-600 mb-6">

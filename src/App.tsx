@@ -11,6 +11,10 @@ import VerifyEmail from "./pages/VerifyEmail";
 import OnboardingStep from "./pages/OnboardingStep";
 import Dashboard from "./pages/Dashboard";
 import Counselors from "./pages/Counselors";
+import CounselorProfile from "./pages/CounselorProfile";
+import Chat from "./pages/Chat";
+import Sessions from "./pages/Sessions";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +33,10 @@ const App = () => (
           <Route path="/onboarding/:step" element={<OnboardingStep />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/counselors" element={<Counselors />} />
+          <Route path="/counselor/:id" element={<CounselorProfile />} />
+          <Route path="/chat/:id" element={<Chat />} />
+          <Route path="/sessions" element={<Sessions />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
