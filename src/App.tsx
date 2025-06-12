@@ -22,6 +22,10 @@ import CounselorLogin from "./pages/CounselorLogin";
 import CounselorSignUp from "./pages/CounselorSignUp";
 import CounselorVerifyEmail from "./pages/CounselorVerifyEmail";
 import CounselorOnboardingStep from "./pages/CounselorOnboardingStep";
+import CounselorDashboard from "./pages/CounselorDashboard";
+import CounselorRequests from "./pages/CounselorRequests";
+import CounselorWallet from "./pages/CounselorWallet";
+import CounselorSessions from "./pages/CounselorSessions";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +55,10 @@ const App = () => (
           <Route path="/counselor-signup" element={<CounselorSignUp />} />
           <Route path="/counselor-verify-email" element={<CounselorVerifyEmail />} />
           <Route path="/counselor-onboarding/:step" element={<CounselorOnboardingStep />} />
+          <Route path="/counselor-dashboard" element={<CounselorDashboard />} />
+          <Route path="/counselor-requests" element={<CounselorRequests />} />
+          <Route path="/counselor-wallet" element={<CounselorWallet />} />
+          <Route path="/counselor-sessions" element={<CounselorSessions />} />
           
           <Route path="*" element={<NotFound />} />
         </Routes>

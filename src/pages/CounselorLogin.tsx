@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -26,7 +25,7 @@ const CounselorLogin: React.FC = () => {
         title: "Login successful",
         description: "Welcome back to Quluub!"
       });
-      navigate('/counselor-onboarding/1');
+      navigate('/counselor-dashboard');
     }, 1500);
   };
 
@@ -112,6 +111,15 @@ const CounselorLogin: React.FC = () => {
         </Button>
 
         <div className="text-center mt-6">
+          <p className="text-sm text-gray-600">
+            Don't have an account?{" "}
+            <Link to="/counselor-signup" className="text-teal-600 hover:underline">
+              Sign up
+            </Link>
+          </p>
+        </div>
+        
+        <div className="text-center">
           <Link to="/counselor-signup" className="text-sm text-teal-600 hover:underline">
             Forgot password?
           </Link>
