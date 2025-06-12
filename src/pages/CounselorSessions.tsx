@@ -2,36 +2,23 @@
 import React, { useState } from 'react';
 import CounselorSidebarLayout from '@/components/CounselorSidebarLayout';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Bell } from 'lucide-react';
 
 const CounselorSessions: React.FC = () => {
   const [activeTab, setActiveTab] = useState('past');
 
   const pastSessions = [
-    { id: 1, client: "Mr. Quadri Ajetunmobi", date: "15th of May 2025" },
-    { id: 2, client: "Mr. Kareem Abbasl", date: "23rd of April 2025" },
-    { id: 3, client: "Mrs. Fatima Nouman", date: "17th of April 2025" },
-    { id: 4, client: "Mr. Yusuf Khan", date: "9th of April 2025" },
-    { id: 5, client: "Mrs. Hamza Farouq", date: "8th of April 2025" },
-    { id: 6, client: "Ms. Hana Kareem", date: "7th of April 2025" },
-    { id: 7, client: "Mrs. Laila Hashmi", date: "30th of March 2025" },
-    { id: 8, client: "Mr. Sani Idris", date: "15th of January 2025" }
+    { id: 1, name: 'Mr. Mohammed Jibril', status: 'completed' },
+    { id: 2, name: 'Miss Aisha Lawal', status: 'completed' },
+    { id: 3, name: 'Mr. Sola Alanni', status: 'completed' },
+    { id: 4, name: 'Mrs. Nifikiat Idris', status: 'completed' }
   ];
 
   const upcomingSessions = [
-    { id: 1, client: "Mr. Quadri Ajetunmobi" },
-    { id: 2, client: "Mrs.Zainab Abdullahi" },
-    { id: 3, client: "Miss Laila Hashmi" },
-    { id: 4, client: "Mr. Sani Idris" },
-    { id: 5, client: "Mrs. Amina Usman" },
-    { id: 6, client: "Mrs. Safiya Abubakar" }
-  ];
-
-  const bookSessions = [
-    { id: 1, client: "Mr. Muhammad Jabril" },
-    { id: 2, client: "Miss Aishat Lawal" },
-    { id: 3, client: "Mr. Sodiq Alanni" },
-    { id: 4, client: "Mrs. Nafisa Idris" }
+    { id: 1, name: 'Mr. Ahmed Hassan', time: '10:00 AM', date: 'Today' },
+    { id: 2, name: 'Mrs. Fatima Bello', time: '2:00 PM', date: 'Tomorrow' }
   ];
 
   return (
@@ -49,99 +36,68 @@ const CounselorSessions: React.FC = () => {
         </div>
       </div>
       
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className="flex">
-          <button
-            onClick={() => setActiveTab('past')}
-            className={`flex-1 py-4 px-6 text-center font-medium ${
-              activeTab === 'past' 
-                ? 'bg-teal-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Past Sessions
-          </button>
-          <button
-            onClick={() => setActiveTab('upcoming')}
-            className={`flex-1 py-4 px-6 text-center font-medium ${
-              activeTab === 'upcoming' 
-                ? 'bg-teal-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Upcoming Sessions
-          </button>
-          <button
-            onClick={() => setActiveTab('book')}
-            className={`flex-1 py-4 px-6 text-center font-medium ${
-              activeTab === 'book' 
-                ? 'bg-teal-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Book Sessions
-          </button>
-        </div>
-        
+      <Card className="bg-white">
         <div className="p-6">
-          {activeTab === 'past' && (
-            <div className="space-y-3">
-              {pastSessions.map((session) => (
-                <div key={session.id} className="flex items-center justify-between py-3 border-b last:border-b-0">
-                  <div className="flex items-center">
-                    <span className="w-6 text-gray-500">{session.id}.</span>
-                    <span className="ml-4">Session with {session.client}</span>
-                  </div>
-                  <span className="text-gray-500">{session.date}</span>
-                </div>
-              ))}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <div className="flex items-center justify-between mb-6">
+              <TabsList className="grid w-full max-w-md grid-cols-3">
+                <TabsTrigger value="past">Past Sessions</TabsTrigger>
+                <TabsTrigger value="upcoming">Upcoming Sessions</TabsTrigger>
+                <TabsTrigger value="book" className="bg-teal-600 text-white data-[state=active]:bg-teal-700">Book Sessions</TabsTrigger>
+              </TabsList>
             </div>
-          )}
-          
-          {activeTab === 'upcoming' && (
-            <div>
-              <div className="flex mb-6">
-                <button className="flex-1 py-2 px-4 text-center border-b-2 border-gray-300 font-medium">
-                  Schedules
-                </button>
-                <button className="flex-1 py-2 px-4 text-center border-b-2 border-transparent font-medium text-gray-500">
-                  Chats
-                </button>
-              </div>
-              
-              <div className="space-y-3">
-                {upcomingSessions.map((session) => (
+            
+            <TabsContent value="past" className="mt-0">
+              <div className="space-y-4">
+                {pastSessions.map((session, index) => (
                   <div key={session.id} className="flex items-center justify-between py-3 border-b last:border-b-0">
                     <div className="flex items-center">
-                      <span className="w-6 text-gray-500">{session.id}.</span>
-                      <span className="ml-4">Session with {session.client}</span>
+                      <span className="text-gray-600 mr-4">{index + 1}.</span>
+                      <span className="text-gray-700">{session.name}</span>
                     </div>
-                    <Button size="sm" className="bg-teal-600 hover:bg-teal-700">
-                      View Schedule
+                    <Button 
+                      size="sm" 
+                      className="bg-teal-600 hover:bg-teal-700"
+                    >
+                      Book Session
                     </Button>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-          
-          {activeTab === 'book' && (
-            <div className="space-y-3">
-              {bookSessions.map((session) => (
-                <div key={session.id} className="flex items-center justify-between py-3 border-b last:border-b-0">
-                  <div className="flex items-center">
-                    <span className="w-6 text-gray-500">{session.id}.</span>
-                    <span className="ml-4">{session.client}</span>
+            </TabsContent>
+            
+            <TabsContent value="upcoming" className="mt-0">
+              <div className="space-y-4">
+                {upcomingSessions.map((session) => (
+                  <div key={session.id} className="flex items-center justify-between py-3 border-b last:border-b-0">
+                    <div className="flex items-center">
+                      <span className="text-gray-700">{session.name}</span>
+                      <span className="text-gray-500 ml-4">{session.time} - {session.date}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm">
+                        Reschedule
+                      </Button>
+                      <Button size="sm" className="bg-teal-600 hover:bg-teal-700">
+                        Start Session
+                      </Button>
+                    </div>
                   </div>
-                  <Button size="sm" className="bg-teal-600 hover:bg-teal-700">
-                    Book Session
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="book" className="mt-0">
+              <div className="text-center py-8">
+                <p className="text-gray-500 mb-4">Book a new session with your clients</p>
+                <Button className="bg-teal-600 hover:bg-teal-700">
+                  Schedule New Session
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
-      </div>
+      </Card>
     </CounselorSidebarLayout>
   );
 };

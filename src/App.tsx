@@ -59,6 +59,8 @@ const App = () => (
           <Route path="/counselor-requests" element={<CounselorRequests />} />
           <Route path="/counselor-wallet" element={<CounselorWallet />} />
           <Route path="/counselor-sessions" element={<CounselorSessions />} />
+          <Route path="/counselor-chat/:id" element={<CounselorChat />} />
+          <Route path="/counselor-settings" element={<CounselorSettings />} />
           
           <Route path="*" element={<NotFound />} />
         </Routes>

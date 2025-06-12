@@ -1,27 +1,27 @@
 
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import SidebarLayout from '@/components/SidebarLayout';
+import CounselorSidebarLayout from '@/components/CounselorSidebarLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Send, Paperclip, Video, Phone, MoreHorizontal, ArrowLeft } from 'lucide-react';
+import { Send, Paperclip, Video, Phone, MoreHorizontal, ArrowLeft, Search, Bell } from 'lucide-react';
 
 interface Message {
   id: number;
   content: string;
-  sender: 'user' | 'counselor';
+  sender: 'client' | 'counselor';
   timestamp: Date;
 }
 
-const Chat: React.FC = () => {
+const CounselorChat: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [newMessage, setNewMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       content: "Hello Ahaji, I've been feeling really overwhelmed lately",
-      sender: "user",
+      sender: "client",
       timestamp: new Date(2024, 4, 10, 14, 47)
     },
     {
@@ -33,22 +33,15 @@ const Chat: React.FC = () => {
     {
       id: 3,
       content: "Alright, I'll check my schedule and let you know. I'm really looking forward to the counselor session",
-      sender: "user",
+      sender: "client",
       timestamp: new Date(2024, 4, 10, 22, 43)
-    },
-    {
-      id: 4,
-      content: "Ahaji, I'll check my schedule and let you know. I'm really looking forward to the counselor session",
-      sender: "counselor",
-      timestamp: new Date(2024, 4, 10, 23, 43)
     }
   ]);
 
-  const counselor = {
+  const client = {
     id: Number(id),
     name: 'Mr. Quadri Ajetunmobi',
-    status: 'Online',
-    specialty: 'Family Counseling'
+    status: 'Online'
   };
 
   const handleSendMessage = () => {
@@ -56,7 +49,7 @@ const Chat: React.FC = () => {
       const newMsg: Message = {
         id: messages.length + 1,
         content: newMessage,
-        sender: 'user',
+        sender: 'counselor',
         timestamp: new Date()
       };
       
@@ -70,8 +63,22 @@ const Chat: React.FC = () => {
   };
 
   return (
-    <SidebarLayout activePath="/chat">
+    <CounselorSidebarLayout activePath="/counselor-chat">
       <div className="flex flex-col h-[calc(100vh-120px)]">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-semibold">Welcome Musa! 👋</h1>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="bg-teal-600 text-white border-teal-600 hover:bg-teal-700">
+              <Search size={16} className="mr-2" />
+              Search
+            </Button>
+            <Button size="icon" variant="ghost">
+              <Bell size={18} />
+            </Button>
+          </div>
+        </div>
+
         {/* Chat header */}
         <Card className="p-4 mb-4 flex items-center justify-between bg-white">
           <div className="flex items-center">
@@ -82,7 +89,7 @@ const Chat: React.FC = () => {
               <span className="text-orange-600 text-sm font-semibold">QA</span>
             </div>
             <div>
-              <h2 className="text-lg font-semibold">{counselor.name}</h2>
+              <h2 className="text-lg font-semibold">{client.name}</h2>
               <p className="text-gray-600 text-sm flex items-center">
                 <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
                 179 Messages Left
@@ -110,9 +117,9 @@ const Chat: React.FC = () => {
         {/* Chat messages */}
         <div className="flex-grow overflow-y-auto mb-4 bg-gray-50 rounded-lg p-4 space-y-4">
           {messages.map((message) => (
-            <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[70%] ${message.sender === 'user' ? 'order-2' : 'order-1'}`}>
-                {message.sender === 'counselor' && (
+            <div key={message.id} className={`flex ${message.sender === 'counselor' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[70%] ${message.sender === 'counselor' ? 'order-2' : 'order-1'}`}>
+                {message.sender === 'client' && (
                   <div className="flex items-center mb-1">
                     <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center mr-2">
                       <span className="text-orange-600 text-xs font-semibold">QA</span>
@@ -120,13 +127,13 @@ const Chat: React.FC = () => {
                   </div>
                 )}
                 <div className={`p-3 rounded-lg ${
-                  message.sender === 'user' 
+                  message.sender === 'counselor' 
                     ? 'bg-teal-600 text-white rounded-br-none' 
                     : 'bg-white border rounded-bl-none'
                 }`}>
                   {message.content}
                 </div>
-                <div className={`text-xs mt-1 text-gray-500 ${message.sender === 'user' ? 'text-right' : 'text-left'}`}>
+                <div className={`text-xs mt-1 text-gray-500 ${message.sender === 'counselor' ? 'text-right' : 'text-left'}`}>
                   {formatTime(message.timestamp)}
                 </div>
               </div>
@@ -155,8 +162,8 @@ const Chat: React.FC = () => {
           </Button>
         </div>
       </div>
-    </SidebarLayout>
+    </CounselorSidebarLayout>
   );
 };
 
-export default Chat;
+export default CounselorChat;

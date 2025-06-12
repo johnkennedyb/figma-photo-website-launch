@@ -1,7 +1,7 @@
 
 import React, { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, Wallet, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Wallet, Settings, LogOut, MessageSquare } from 'lucide-react';
 import QuluubLogo from './QuluubLogo';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 
@@ -22,6 +22,7 @@ const CounselorSidebarLayout: React.FC<CounselorSidebarLayoutProps> = ({
     { path: '/counselor-requests', label: 'Requests', icon: <Users size={20} /> },
     { path: '/counselor-wallet', label: 'Wallet', icon: <Wallet size={20} /> },
     { path: '/counselor-sessions', label: 'Sessions', icon: <Calendar size={20} /> },
+    { path: '/counselor-chat', label: 'Messages', icon: <MessageSquare size={20} /> },
     { path: '/counselor-settings', label: 'Settings', icon: <Settings size={20} /> },
   ];
 
