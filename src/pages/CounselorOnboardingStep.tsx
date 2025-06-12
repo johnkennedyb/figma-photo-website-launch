@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -50,6 +49,13 @@ const CounselorOnboardingStep: React.FC = () => {
     setFormData(prev => ({
       ...prev,
       languages: { ...prev.languages, [language]: checked }
+    }));
+  };
+
+  const handleLanguageInputChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      languages: { ...prev.languages, other: value }
     }));
   };
 
@@ -256,7 +262,7 @@ const CounselorOnboardingStep: React.FC = () => {
               <Input
                 name="other"
                 value={formData.languages.other}
-                onChange={(e) => handleCheckboxChange('other', e.target.value)}
+                onChange={(e) => handleLanguageInputChange(e.target.value)}
                 placeholder="Other? Input"
                 className="h-12 bg-teal-50 border-teal-600"
               />

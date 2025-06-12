@@ -37,7 +37,7 @@ const CounselorLogin: React.FC = () => {
   return (
     <AuthLayout 
       imageSrc="/lovable-uploads/0e9aee20-5001-45f4-a844-e720d391bae1.png"
-      userType="counsellor"
+      userType="counselor"
       heading="Login"
     >
       <p className="text-sm text-gray-500 mb-6">
