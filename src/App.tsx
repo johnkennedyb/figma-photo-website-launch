@@ -17,6 +17,12 @@ import Sessions from "./pages/Sessions";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
+// Import counselor pages
+import CounselorLogin from "./pages/CounselorLogin";
+import CounselorSignUp from "./pages/CounselorSignUp";
+import CounselorVerifyEmail from "./pages/CounselorVerifyEmail";
+import CounselorOnboardingStep from "./pages/CounselorOnboardingStep";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -27,6 +33,8 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Welcome />} />
+          
+          {/* Client routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
@@ -37,6 +45,13 @@ const App = () => (
           <Route path="/chat/:id" element={<Chat />} />
           <Route path="/sessions" element={<Sessions />} />
           <Route path="/settings" element={<Settings />} />
+          
+          {/* Counselor routes */}
+          <Route path="/counselor-login" element={<CounselorLogin />} />
+          <Route path="/counselor-signup" element={<CounselorSignUp />} />
+          <Route path="/counselor-verify-email" element={<CounselorVerifyEmail />} />
+          <Route path="/counselor-onboarding/:step" element={<CounselorOnboardingStep />} />
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
