@@ -25,24 +25,24 @@ const CounselorDashboard: React.FC = () => {
           <h2 className="text-xl font-semibold mb-4 text-white">Overview</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             {/* Current Clients */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-medium mb-4">Current Clients</h3>
+            <div className="bg-white/20 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/30">
+              <h3 className="text-lg font-medium mb-4 text-white">Current Clients</h3>
               <div className="flex items-center justify-center py-8">
                 <div className="text-center">
-                  <div className="text-4xl font-bold text-teal-600 mb-2">8</div>
-                  <div className="text-gray-500">Sessions</div>
+                  <div className="text-4xl font-bold text-white mb-2">8</div>
+                  <div className="text-white/70">Sessions</div>
                 </div>
               </div>
             </div>
             
             {/* Next Session Date */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-medium mb-4">Next session date</h3>
+            <div className="bg-white/20 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/30">
+              <h3 className="text-lg font-medium mb-4 text-white">Next session date</h3>
               <div className="flex items-center justify-center py-6">
                 <div className="text-center">
-                  <div className="text-gray-500 mb-2">📅</div>
-                  <div className="text-lg font-medium">9th of May 2025</div>
-                  <div className="text-gray-500">11:30 am</div>
+                  <div className="text-white/70 mb-2">📅</div>
+                  <div className="text-lg font-medium text-white">9th of May 2025</div>
+                  <div className="text-white/70">11:30 am</div>
                   <Button className="mt-4 bg-teal-600 hover:bg-teal-700">
                     Reschedule
                   </Button>
@@ -52,27 +52,27 @@ const CounselorDashboard: React.FC = () => {
           </div>
           
           {/* Earnings Card */}
-          <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-sm p-6">
+          <div className="bg-white/20 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/30">
             <div className="flex items-center mb-4">
               <span className="text-xl mr-2">💰</span>
-              <h3 className="text-lg font-medium">Earnings</h3>
+              <h3 className="text-lg font-medium text-white">Earnings</h3>
             </div>
             <div className="space-y-4">
               <div className="flex justify-between">
-                <span className="text-gray-600">Total amount earned so far</span>
-                <span className="font-semibold">#850,800</span>
+                <span className="text-white/70">Total amount earned so far</span>
+                <span className="font-semibold text-white">#850,800</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">This Year</span>
-                <span className="font-semibold">#400,800</span>
+                <span className="text-white/70">This Year</span>
+                <span className="font-semibold text-white">#400,800</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">This Month</span>
-                <span className="font-semibold">#80,000</span>
+                <span className="text-white/70">This Month</span>
+                <span className="font-semibold text-white">#80,000</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">This Week</span>
-                <span className="font-semibold">#15,000</span>
+                <span className="text-white/70">This Week</span>
+                <span className="font-semibold text-white">#15,000</span>
               </div>
             </div>
           </div>
