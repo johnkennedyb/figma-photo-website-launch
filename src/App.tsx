@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,6 +25,8 @@ import CounselorDashboard from "./pages/CounselorDashboard";
 import CounselorRequests from "./pages/CounselorRequests";
 import CounselorWallet from "./pages/CounselorWallet";
 import CounselorSessions from "./pages/CounselorSessions";
+import CounselorChat from "./pages/CounselorChat";
+import CounselorSettings from "./pages/CounselorSettings";
 
 const queryClient = new QueryClient();
 
