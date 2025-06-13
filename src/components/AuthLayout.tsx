@@ -25,16 +25,6 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
         {/* Form side */}
         {isFormOnLeft && (
           <div className="w-1/2 p-8 bg-white">
-            <div className="mb-8 text-center">
-              <div className="flex justify-center items-center mt-7">
-                <QuluubLogo size="lg" />
-              </div>
-              {userType && (
-                <div className="text-gray-700 font-large capitalize" style={{fontSize:'30px'}}>
-                  {userType}
-                </div>
-              )}
-            </div>
             {heading && (
               <h2 className="text-2xl font-semibold mb-6">{heading}</h2>
             )}
@@ -44,7 +34,8 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
         
         {/* Image side */}
         <div className="w-1/2 bg-white p-8 flex flex-col">
-          {!isFormOnLeft && (
+          {/* Logo always on top for counselor pages when form is on left */}
+          {isFormOnLeft ? (
             <div className="mb-8 text-center">
               <div className="flex justify-center items-center mt-7">
                 <QuluubLogo size="lg" />
@@ -55,6 +46,19 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
                 </div>
               )}
             </div>
+          ) : (
+            !isFormOnLeft && (
+              <div className="mb-8 text-center">
+                <div className="flex justify-center items-center mt-7">
+                  <QuluubLogo size="lg" />
+                </div>
+                {userType && (
+                  <div className="text-gray-700 font-large capitalize" style={{fontSize:'30px'}}>
+                    {userType}
+                  </div>
+                )}
+              </div>
+            )
           )}
           <div className="flex-grow flex items-center justify-center">
             <img 
