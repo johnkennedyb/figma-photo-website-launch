@@ -70,6 +70,8 @@ const Settings: React.FC = () => {
 
   return (
     <SidebarLayout activePath="/settings">
+                  <div className="dashboard-background  min-h-screen p-6">
+
       <div className="mb-8">
         <h1 className="text-2xl font-semibold">Settings</h1>
       </div>
@@ -276,6 +278,7 @@ const Settings: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </SidebarLayout>
   );
 };

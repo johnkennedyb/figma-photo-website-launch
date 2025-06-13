@@ -60,11 +60,9 @@ const OnboardingStep: React.FC = () => {
 
   return (
     <div className="auth-layout">
-      <div className="bg-white rounded-lg shadow-md w-full max-w-lg p-8">
-        <div className="flex items-center justify-center mb-6">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="#009688"/>
-          </svg>
+<div className="bg-white rounded-lg shadow-md w-full max-w-[1067px] h-[520px] p-8">
+<div className="flex items-center justify-center mb-6">
+          <img src="/lovable-uploads/quluublogosmall.png" alt="" />
         </div>
         
         <h2 className="text-xl font-medium mb-1">Please fill the correct information</h2>
@@ -79,7 +77,7 @@ const OnboardingStep: React.FC = () => {
           <p className="text-gray-600 text-sm">{currentConfig.description}</p>
         </div>
         
-        <div className="mb-8">
+        <div className="mb-8 w-1/2">
           <FormField 
             label={currentConfig.title}
             placeholder={`Enter ${currentConfig.title.toLowerCase()}`}
@@ -88,7 +86,7 @@ const OnboardingStep: React.FC = () => {
           />
         </div>
         
-        <div className="flex justify-between">
+        <div className="flex justify-between bottom-0" style={{marginTop:'130px'}} >
           <Button 
             variant="outline" 
             onClick={handlePrevious}

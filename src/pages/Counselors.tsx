@@ -59,7 +59,8 @@ const Counselors: React.FC = () => {
 
   return (
     <SidebarLayout activePath="/counselors">
-      <div className="flex items-center justify-between mb-8">
+            <div className="dashboard-background p-6">
+            <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-semibold">Counsellors</h1>
         <div className="relative">
           <input
@@ -146,6 +147,8 @@ const Counselors: React.FC = () => {
           <Button>Next</Button>
         </div>
       )}
+</div>
+ 
     </SidebarLayout>
   );
 };

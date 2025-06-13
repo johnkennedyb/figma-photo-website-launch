@@ -275,17 +275,18 @@ const CounselorOnboardingStep: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-teal-600 bg-gradient-to-b from-teal-600 to-teal-700 p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-4xl">
+    
+    <div className="min-h-screen auth-layout flex items-center justify-center  p-4">
+      <div className="bg-white rounded-lg shadow-lg p-8  w-full max-w-4xl">
         <div className="flex justify-center mb-8">
-          <img src="/lovable-uploads/c47151cc-f491-4b1e-82ef-1ef8d837d9ba.png" alt="Quluub Logo" className="h-12" />
+          <img src="/lovable-uploads/quluublogosmall.png" alt="Quluub Logo" className="h-12" />
         </div>
         
         <div className="text-center mb-8">
           <p className="text-gray-600">Please fill in the correct information</p>
         </div>
         
-        <div className="min-h-[300px]">
+        <div className="min-h-[220px]">
           {renderStepContent()}
         </div>
         

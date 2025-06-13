@@ -20,10 +20,13 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
       <div className="auth-card">
         {/* Left side with logo and image */}
         <div className="w-1/2 bg-white p-8 flex flex-col">
-          <div className="mb-8">
-            <QuluubLogo size="md" />
-            {userType && (
-              <div className="mt-2 text-gray-700 font-medium capitalize">
+          <div className="mb-8 text-center" style={{textAlign:'center'}}>
+          <div className="flex justify-center items-center mt-7 ">
+  <QuluubLogo size="lg" />
+</div>
+
+          {userType && (
+              <div className=" text-gray-700 font-large capitalize" style={{fontSize:'30px'}}>
                 {userType}
               </div>
             )}
@@ -32,7 +35,8 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
             <img 
               src={imageSrc} 
               alt="Quluub illustration" 
-              className="max-h-64 object-contain"
+              className="max-h-74 mt-2 object-contain"
+              style={{marginBottom:'-90px'}}
             />
           </div>
         </div>

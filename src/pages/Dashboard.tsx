@@ -8,7 +8,8 @@ const Dashboard: React.FC = () => {
   return (
     <div className="dashboard-background">
       <SidebarLayout activePath="/dashboard">
-        <div className="flex items-center justify-between mb-8">
+      <div className="dashboard-background p-6">
+          <div className="flex items-center bg-dark justify-between mb-8">
           <h1 className="text-2xl font-semibold text-white">Welcome Quluub! 👋</h1>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="bg-white/20 text-white border-white/30 hover:bg-white/30">My Profile</Button>
@@ -82,7 +83,8 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div></div>
+       
       </SidebarLayout>
     </div>
   );

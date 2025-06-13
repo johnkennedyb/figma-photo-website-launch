@@ -118,6 +118,8 @@ const Sessions: React.FC = () => {
 
   return (
     <SidebarLayout activePath="/sessions">
+                  <div className="dashboard-background min-h-screen p-6">
+
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-semibold">Sessions</h1>
         <Button>
@@ -165,6 +167,7 @@ const Sessions: React.FC = () => {
           )}
         </TabsContent>
       </Tabs>
+      </div>
     </SidebarLayout>
   );
 };

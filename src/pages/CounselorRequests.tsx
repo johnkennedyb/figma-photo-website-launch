@@ -16,6 +16,8 @@ const CounselorRequests: React.FC = () => {
 
   return (
     <CounselorSidebarLayout activePath="/counselor-requests">
+                        <div className="dashboard-background min-h-screen p-6">
+
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-semibold">Welcome Musa! 👋</h1>
         <div className="flex items-center gap-2">
@@ -54,6 +56,7 @@ const CounselorRequests: React.FC = () => {
             ))}
           </div>
         </div>
+      </div>
       </div>
     </CounselorSidebarLayout>
   );

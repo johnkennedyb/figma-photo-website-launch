@@ -63,6 +63,8 @@ const CounselorSettings: React.FC = () => {
 
   return (
     <CounselorSidebarLayout activePath="/counselor-settings">
+                        <div className="dashboard-background min-h-screen p-6">
+
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-semibold flex items-center gap-2">
           Settings <SettingsIcon size={24} className="text-gray-600" />
@@ -285,6 +287,7 @@ const CounselorSettings: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </CounselorSidebarLayout>
   );
 };

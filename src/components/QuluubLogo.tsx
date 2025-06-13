@@ -15,7 +15,7 @@ const QuluubLogo: React.FC<LogoProps> = ({
   const sizes = {
     sm: 'h-8',
     md: 'h-10',
-    lg: 'h-16',
+    lg: 'h-19',
   };
 
   const textSizes = {
@@ -30,7 +30,7 @@ const QuluubLogo: React.FC<LogoProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center text-center align-item-center gap-2">
       <img 
         src="/lovable-uploads/118e5a2b-3804-47f3-8c97-eb95653a81a1.png" 
         alt="Quluub Logo" 
@@ -38,7 +38,6 @@ const QuluubLogo: React.FC<LogoProps> = ({
       />
       {withText && size !== 'sm' && (
         <div className="flex flex-col">
-          <span className={`text-xs ${colors[variant]} opacity-70`}>Counseling Platform</span>
         </div>
       )}
     </div>

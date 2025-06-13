@@ -30,7 +30,7 @@ const Login: React.FC = () => {
 
   return (
     <AuthLayout 
-      imageSrc="/lovable-uploads/1f385dc5-df55-4c9a-86ea-b830918ace35.png" 
+      imageSrc="/lovable-uploads/Group.png" 
       userType="client"
       heading="Login"
     >

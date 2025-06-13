@@ -20,7 +20,7 @@ const CounselorVerifyEmail: React.FC = () => {
 
   return (
     <AuthLayout 
-      imageSrc="/lovable-uploads/45c5eb62-d1e5-41e6-8014-3c49d4ff1ff7.png"
+      imageSrc="/lovable-uploads/Group 2.png"
       userType="counselor"
       heading="Verify Your Email"
     >

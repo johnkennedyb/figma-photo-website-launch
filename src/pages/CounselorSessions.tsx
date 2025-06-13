@@ -24,6 +24,8 @@ const CounselorSessions: React.FC = () => {
   return (
     <div className="dashboard-background">
       <CounselorSidebarLayout activePath="/counselor-sessions">
+      <div className="dashboard-background min-h-screen p-6">
+
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-semibold text-white">Welcome Musa! 👋</h1>
           <div className="flex items-center gap-2">
@@ -99,6 +101,7 @@ const CounselorSessions: React.FC = () => {
             </Tabs>
           </div>
         </Card>
+        </div>
       </CounselorSidebarLayout>
     </div>
   );

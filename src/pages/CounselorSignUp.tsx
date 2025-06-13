@@ -36,7 +36,7 @@ const CounselorSignUp: React.FC = () => {
 
   return (
     <AuthLayout 
-      imageSrc="/lovable-uploads/0e9aee20-5001-45f4-a844-e720d391bae1.png"
+      imageSrc="/lovable-uploads/Group 2.png"
       userType="counselor"
       heading="Sign Up"
     >

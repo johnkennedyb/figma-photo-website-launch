@@ -8,6 +8,8 @@ const CounselorDashboard: React.FC = () => {
   return (
     <div className="dashboard-background">
       <CounselorSidebarLayout activePath="/counselor-dashboard">
+      <div className="dashboard-background min-h-screen p-6">
+
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-semibold text-white">Welcome Musa! 👋</h1>
           <div className="flex items-center gap-2">
@@ -77,6 +79,7 @@ const CounselorDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+        </ div>
       </CounselorSidebarLayout>
     </div>
   );

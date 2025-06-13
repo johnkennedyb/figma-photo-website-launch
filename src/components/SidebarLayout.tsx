@@ -84,7 +84,7 @@ const SidebarLayout: React.FC<SidebarLayoutProps> = ({
       </aside>
       
       {/* Main content */}
-      <main className="flex-1 p-6">
+      <main className="w-full flex-1 ">
         {children}
       </main>
       
