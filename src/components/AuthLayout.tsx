@@ -7,30 +7,55 @@ interface AuthLayoutProps {
   imageSrc: string;
   userType?: 'client' | 'counselor';
   heading?: string;
+  formSide?: 'left' | 'right';
 }
 
 const AuthLayout: React.FC<AuthLayoutProps> = ({ 
   children, 
   imageSrc, 
   userType,
-  heading
+  heading,
+  formSide = 'right'
 }) => {
+  const isFormOnLeft = formSide === 'left';
+  
   return (
     <div className="auth-layout">
       <div className="auth-card">
-        {/* Left side with logo and image */}
-        <div className="w-1/2 bg-white p-8 flex flex-col">
-          <div className="mb-8 text-center" style={{textAlign:'center'}}>
-          <div className="flex justify-center items-center mt-7 ">
-  <QuluubLogo size="lg" />
-</div>
-
-          {userType && (
-              <div className=" text-gray-700 font-large capitalize" style={{fontSize:'30px'}}>
-                {userType}
+        {/* Form side */}
+        {isFormOnLeft && (
+          <div className="w-1/2 p-8 bg-white">
+            <div className="mb-8 text-center">
+              <div className="flex justify-center items-center mt-7">
+                <QuluubLogo size="lg" />
               </div>
+              {userType && (
+                <div className="text-gray-700 font-large capitalize" style={{fontSize:'30px'}}>
+                  {userType}
+                </div>
+              )}
+            </div>
+            {heading && (
+              <h2 className="text-2xl font-semibold mb-6">{heading}</h2>
             )}
+            {children}
           </div>
+        )}
+        
+        {/* Image side */}
+        <div className="w-1/2 bg-white p-8 flex flex-col">
+          {!isFormOnLeft && (
+            <div className="mb-8 text-center">
+              <div className="flex justify-center items-center mt-7">
+                <QuluubLogo size="lg" />
+              </div>
+              {userType && (
+                <div className="text-gray-700 font-large capitalize" style={{fontSize:'30px'}}>
+                  {userType}
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex-grow flex items-center justify-center">
             <img 
               src={imageSrc} 
@@ -41,13 +66,15 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
           </div>
         </div>
         
-        {/* Right side with content */}
-        <div className="w-1/2 p-8 bg-white">
-          {heading && (
-            <h2 className="text-2xl font-semibold mb-6">{heading}</h2>
-          )}
-          {children}
-        </div>
+        {/* Form side (when on right) */}
+        {!isFormOnLeft && (
+          <div className="w-1/2 p-8 bg-white">
+            {heading && (
+              <h2 className="text-2xl font-semibold mb-6">{heading}</h2>
+            )}
+            {children}
+          </div>
+        )}
       </div>
     </div>
   );
