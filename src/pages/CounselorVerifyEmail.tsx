@@ -23,7 +23,6 @@ const CounselorVerifyEmail: React.FC = () => {
       imageSrc="/lovable-uploads/Group 2.png"
       userType="counselor"
       heading="Verify Your Email"
-      formSide="left"
     >
       <div className="text-center">
         <p className="text-gray-600 mb-8">
