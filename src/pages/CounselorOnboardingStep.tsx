@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -29,10 +30,9 @@ const CounselorOnboardingStep: React.FC = () => {
     issuesSpecialization: '',
     affiliations: '',
     languages: {
-      arabic: false,
-      urdu: false,
-      farsi: false,
-      other: ''
+      yoruba: false,
+      igbo: false,
+      hausa: false
     }
   });
 
@@ -52,18 +52,10 @@ const CounselorOnboardingStep: React.FC = () => {
     }));
   };
 
-  const handleLanguageInputChange = (value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      languages: { ...prev.languages, other: value }
-    }));
-  };
-
   const handleNext = () => {
     if (currentStep < 7) {
       navigate(`/counselor-onboarding/${currentStep + 1}`);
     } else {
-      // Complete onboarding
       toast({
         title: "Onboarding completed",
         description: "Your profile has been created."
@@ -234,38 +226,30 @@ const CounselorOnboardingStep: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center space-x-3">
                 <Checkbox 
-                  id="arabic" 
-                  checked={formData.languages.arabic}
-                  onCheckedChange={(checked) => handleCheckboxChange('arabic', checked === true)} 
+                  id="yoruba" 
+                  checked={formData.languages.yoruba}
+                  onCheckedChange={(checked) => handleCheckboxChange('yoruba', checked === true)} 
                 />
-                <label htmlFor="arabic" className="text-sm">Arabic</label>
+                <label htmlFor="yoruba" className="text-sm">Yoruba</label>
               </div>
               
               <div className="flex items-center space-x-3">
                 <Checkbox 
-                  id="urdu" 
-                  checked={formData.languages.urdu}
-                  onCheckedChange={(checked) => handleCheckboxChange('urdu', checked === true)} 
+                  id="igbo" 
+                  checked={formData.languages.igbo}
+                  onCheckedChange={(checked) => handleCheckboxChange('igbo', checked === true)} 
                 />
-                <label htmlFor="urdu" className="text-sm">Urdu</label>
+                <label htmlFor="igbo" className="text-sm">Igbo</label>
               </div>
               
               <div className="flex items-center space-x-3">
                 <Checkbox 
-                  id="farsi" 
-                  checked={formData.languages.farsi}
-                  onCheckedChange={(checked) => handleCheckboxChange('farsi', checked === true)} 
+                  id="hausa" 
+                  checked={formData.languages.hausa}
+                  onCheckedChange={(checked) => handleCheckboxChange('hausa', checked === true)} 
                 />
-                <label htmlFor="farsi" className="text-sm">Farsi</label>
+                <label htmlFor="hausa" className="text-sm">Hausa</label>
               </div>
-              
-              <Input
-                name="other"
-                value={formData.languages.other}
-                onChange={(e) => handleLanguageInputChange(e.target.value)}
-                placeholder="Other? Input"
-                className="h-12 bg-teal-50 border-teal-600"
-              />
             </div>
           </div>
         );
@@ -275,9 +259,8 @@ const CounselorOnboardingStep: React.FC = () => {
   };
 
   return (
-    
-    <div className="min-h-screen auth-layout flex items-center justify-center  p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8  w-full max-w-4xl">
+    <div className="min-h-screen auth-layout flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-4xl">
         <div className="flex justify-center mb-8">
           <img src="/lovable-uploads/quluublogosmall.png" alt="Quluub Logo" className="h-12" />
         </div>
