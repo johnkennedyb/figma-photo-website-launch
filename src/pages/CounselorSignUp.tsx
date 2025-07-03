@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AuthLayout from '@/components/AuthLayout';
 import { Eye, EyeOff } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 const CounselorSignUp: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -13,21 +13,19 @@ const CounselorSignUp: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { signUp } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Account created",
-        description: "Please verify your email to continue."
-      });
-      navigate('/counselor-onboarding/1');
-    }, 1500);
+    const { error } = await signUp(email, password, '', '', 'counselor');
+    
+    if (!error) {
+      navigate('/counselor-verify-email');
+    }
+    
+    setIsLoading(false);
   };
 
   const togglePasswordVisibility = () => {

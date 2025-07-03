@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import AuthLayout from '@/components/AuthLayout';
 import FormField from '@/components/FormField';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 const SignUp: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -13,32 +13,25 @@ const SignUp: React.FC = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { signUp } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (password !== confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please ensure your passwords match.",
-        variant: "destructive"
-      });
       return;
     }
     
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Account created",
-        description: "Welcome to Quluub! Let's complete your profile."
-      });
-      navigate('/onboarding/1');
-    }, 1500);
+    const { error } = await signUp(email, password, firstName, lastName, 'client');
+    
+    if (!error) {
+      navigate('/verify-email');
+    }
+    
+    setIsLoading(false);
   };
 
   return (
