@@ -26,7 +26,7 @@ const CounselorSignUp: React.FC = () => {
         title: "Account created",
         description: "Please verify your email to continue."
       });
-      navigate('/counselor-verify-email');
+      navigate('/counselor-onboarding/1');
     }, 1500);
   };
 

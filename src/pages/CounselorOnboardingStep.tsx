@@ -20,6 +20,7 @@ const CounselorOnboardingStep: React.FC = () => {
   const currentStep = parseInt(step || '1');
   
   const [formData, setFormData] = useState({
+    fullName: '',
     nationality: '',
     countryOfResidence: '',
     cityOfResidence: '',
@@ -53,7 +54,7 @@ const CounselorOnboardingStep: React.FC = () => {
   };
 
   const handleNext = () => {
-    if (currentStep < 7) {
+    if (currentStep < 8) {
       navigate(`/counselor-onboarding/${currentStep + 1}`);
     } else {
       toast({
@@ -75,6 +76,19 @@ const CounselorOnboardingStep: React.FC = () => {
       case 1:
         return (
           <div className="space-y-6">
+            <h2 className="text-lg">1. Full Name</h2>
+            <Input
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleInputChange}
+              placeholder="Input your full name"
+              className="h-12 bg-teal-50 border-teal-600"
+            />
+          </div>
+        );
+      case 2:
+        return (
+          <div className="space-y-6">
             <h2 className="text-lg">2. Nationality</h2>
             <Input
               name="nationality"
@@ -85,7 +99,7 @@ const CounselorOnboardingStep: React.FC = () => {
             />
           </div>
         );
-      case 2:
+      case 3:
         return (
           <div className="space-y-6">
             <h2 className="text-lg">3. Country of Residence</h2>
@@ -98,7 +112,7 @@ const CounselorOnboardingStep: React.FC = () => {
             />
           </div>
         );
-      case 3:
+      case 4:
         return (
           <div className="space-y-6">
             <h2 className="text-lg">4. City of Residence</h2>
@@ -111,7 +125,7 @@ const CounselorOnboardingStep: React.FC = () => {
             />
           </div>
         );
-      case 4:
+      case 5:
         return (
           <div className="space-y-6">
             <h2 className="text-lg">5. Marital Status</h2>
@@ -132,7 +146,7 @@ const CounselorOnboardingStep: React.FC = () => {
             </Select>
           </div>
         );
-      case 5:
+      case 6:
         return (
           <div className="space-y-6">
             <h2 className="text-lg">6. Summary of Experience/Qualification</h2>
@@ -182,7 +196,7 @@ const CounselorOnboardingStep: React.FC = () => {
             </div>
           </div>
         );
-      case 6:
+      case 7:
         return (
           <div className="space-y-6">
             <h2 className="text-lg">Summary of Experience/Qualification</h2>
@@ -219,7 +233,7 @@ const CounselorOnboardingStep: React.FC = () => {
             </div>
           </div>
         );
-      case 7:
+      case 8:
         return (
           <div className="space-y-6">
             <h2 className="text-lg">7. Languages Spoken</h2>
@@ -289,7 +303,7 @@ const CounselorOnboardingStep: React.FC = () => {
             onClick={handleNext}
             className="bg-white text-black border border-gray-300 hover:bg-gray-100 px-8"
           >
-            {currentStep === 7 ? "Finish" : "Next"}
+            {currentStep === 8 ? "Finish" : "Next"}
           </Button>
         </div>
       </div>

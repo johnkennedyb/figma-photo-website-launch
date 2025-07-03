@@ -13,6 +13,7 @@ const OnboardingStep: React.FC = () => {
   const currentStep = parseInt(step || '1');
   
   const [formData, setFormData] = useState({
+    dateOfBirth: '',
     nationality: '',
     countryOfResidence: '',
     cityOfResidence: '',
@@ -71,6 +72,10 @@ const OnboardingStep: React.FC = () => {
 
   const stepConfigs = [
     {
+      title: "Date of Birth",
+      description: "Please enter your date of birth"
+    },
+    {
       title: "Nationality",
       description: "Please enter your nationality"
     },
@@ -103,6 +108,17 @@ const OnboardingStep: React.FC = () => {
       case 1:
         return (
           <Input
+            name="dateOfBirth"
+            type="date"
+            value={formData.dateOfBirth}
+            onChange={handleInputChange}
+            placeholder="Enter your date of birth"
+            className="h-12 bg-teal-50 border-teal-600"
+          />
+        );
+      case 2:
+        return (
+          <Input
             name="nationality"
             value={formData.nationality}
             onChange={handleInputChange}
@@ -110,7 +126,7 @@ const OnboardingStep: React.FC = () => {
             className="h-12 bg-teal-50 border-teal-600"
           />
         );
-      case 2:
+      case 3:
         return (
           <Input
             name="countryOfResidence"
@@ -120,7 +136,7 @@ const OnboardingStep: React.FC = () => {
             className="h-12 bg-teal-50 border-teal-600"
           />
         );
-      case 3:
+      case 4:
         return (
           <Input
             name="cityOfResidence"
@@ -130,7 +146,7 @@ const OnboardingStep: React.FC = () => {
             className="h-12 bg-teal-50 border-teal-600"
           />
         );
-      case 4:
+      case 5:
         return (
           <Input
             name="maritalStatus"
@@ -140,7 +156,7 @@ const OnboardingStep: React.FC = () => {
             className="h-12 bg-teal-50 border-teal-600"
           />
         );
-      case 5:
+      case 6:
         return (
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
@@ -182,7 +198,7 @@ const OnboardingStep: React.FC = () => {
             />
           </div>
         );
-      case 6:
+      case 7:
         return (
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
@@ -252,7 +268,7 @@ const OnboardingStep: React.FC = () => {
           <Button 
             onClick={handleNext}
           >
-            {currentStep === 6 ? 'Finish' : 'Next'}
+            {currentStep === 7 ? 'Finish' : 'Next'}
           </Button>
         </div>
       </div>
