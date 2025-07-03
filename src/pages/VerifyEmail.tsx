@@ -1,37 +1,20 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import AuthLayout from '@/components/AuthLayout';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const VerifyEmail: React.FC = () => {
-  const { user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Handle email verification from URL params
-    const handleEmailVerification = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (data.session && user) {
-        // User is verified and logged in
-        navigate('/dashboard');
-      }
-    };
-
-    handleEmailVerification();
-  }, [user, navigate]);
-
-  const handleResendEmail = async () => {
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: user?.email || ''
+  const handleContinue = () => {
+    toast({
+      title: "Email verified",
+      description: "Your email has been verified successfully"
     });
-    
-    if (!error) {
-      // Show success message
-    }
+    navigate('/dashboard');
   };
 
   return (
@@ -53,8 +36,8 @@ const VerifyEmail: React.FC = () => {
           We've sent a verification email to your inbox. Please check your email and verify your account to continue.
         </p>
         
-        <Button onClick={handleResendEmail} className="w-full">
-          Resend Verification Email
+        <Button onClick={handleContinue} className="w-full">
+          Continue
         </Button>
       </div>
     </AuthLayout>

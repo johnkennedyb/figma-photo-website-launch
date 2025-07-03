@@ -4,26 +4,28 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import AuthLayout from '@/components/AuthLayout';
 import FormField from '@/components/FormField';
-import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    const { error } = await signIn(email, password);
-    
-    if (!error) {
+    // Simulate API call
+    setTimeout(() => {
+      setIsLoading(false);
+      toast({
+        title: "Login successful",
+        description: "Welcome back to Quluub!"
+      });
       navigate('/dashboard');
-    }
-    
-    setIsLoading(false);
+    }, 1500);
   };
 
   return (

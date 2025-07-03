@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AuthLayout from '@/components/AuthLayout';
 import { Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 const CounselorLogin: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -12,19 +12,21 @@ const CounselorLogin: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    const { error } = await signIn(email, password);
-    
-    if (!error) {
+    // Simulate API call
+    setTimeout(() => {
+      setIsLoading(false);
+      toast({
+        title: "Login successful",
+        description: "Welcome back to Quluub!"
+      });
       navigate('/counselor-dashboard');
-    }
-    
-    setIsLoading(false);
+    }, 1500);
   };
 
   const togglePasswordVisibility = () => {
