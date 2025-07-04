@@ -1,34 +1,30 @@
-import React from 'react';
+import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
 interface ProtectedRouteProps {
-  children: React.ReactNode;
+  children: ReactNode;
   userType?: 'client' | 'counselor';
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, userType }) => {
-  const { user, loading, userProfile } = useAuth();
+export const ProtectedRoute = ({ children, userType }: ProtectedRouteProps) => {
+  const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
   if (!user) {
     return <Navigate to="/" replace />;
   }
 
-  // Check user type if specified
-  if (userType && userProfile?.user_type !== userType) {
-    const redirectPath = userProfile?.user_type === 'counselor' ? '/counselor-dashboard' : '/dashboard';
-    return <Navigate to={redirectPath} replace />;
+  // If userType is specified, check if user has the correct type
+  if (userType) {
+    const userData = user.user_metadata;
+    if (userData?.user_type !== userType) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return <>{children}</>;
 };
-
-export default ProtectedRoute;

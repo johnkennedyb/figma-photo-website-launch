@@ -4,7 +4,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, Calendar, MessageSquare, Settings, LogOut } from 'lucide-react';
 import QuluubLogo from './QuluubLogo';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
-import { useAuth } from '@/hooks/useAuth';
 
 interface SidebarLayoutProps {
   children: ReactNode;
@@ -17,7 +16,6 @@ const SidebarLayout: React.FC<SidebarLayoutProps> = ({
 }) => {
   const [showLogoutDialog, setShowLogoutDialog] = React.useState(false);
   const location = useLocation();
-  const { userProfile, signOut } = useAuth();
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
@@ -27,9 +25,9 @@ const SidebarLayout: React.FC<SidebarLayoutProps> = ({
     { path: '/settings', label: 'Settings', icon: <Settings size={20} /> },
   ];
 
-  const handleLogout = async () => {
-    await signOut();
-    setShowLogoutDialog(false);
+  const handleLogout = () => {
+    // Logic to log out
+    window.location.href = '/';
   };
 
   return (
@@ -44,15 +42,11 @@ const SidebarLayout: React.FC<SidebarLayoutProps> = ({
           {/* User profile preview */}
           <div className="flex items-center mb-8">
             <div className="w-10 h-10 rounded-full bg-sidebar-accent flex items-center justify-center">
-              <span className="text-sidebar-accent-foreground text-sm">
-                {userProfile?.first_name?.[0]?.toUpperCase()}{userProfile?.last_name?.[0]?.toUpperCase()}
-              </span>
+              <span className="text-sidebar-accent-foreground text-sm">QC</span>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium">
-                {userProfile?.first_name} {userProfile?.last_name}
-              </p>
-              <p className="text-xs opacity-70">{userProfile?.email}</p>
+              <p className="text-sm font-medium">Quluub Client</p>
+              <p className="text-xs opacity-70">client@quluub.com</p>
             </div>
           </div>
           

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,26 +12,19 @@ const CounselorLogin: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { signIn, user, userProfile } = useAuth();
-
-  useEffect(() => {
-    if (user && userProfile) {
-      const redirectPath = userProfile.user_type === 'counselor' ? '/counselor-dashboard' : '/dashboard';
-      navigate(redirectPath);
-    }
-  }, [user, userProfile, navigate]);
+  const { signIn } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
     const { error } = await signIn(email, password);
-    setIsLoading(false);
-
-    if (!error && userProfile) {
-      const redirectPath = userProfile.user_type === 'counselor' ? '/counselor-dashboard' : '/dashboard';
-      navigate(redirectPath);
+    
+    if (!error) {
+      navigate('/counselor-dashboard');
     }
+    
+    setIsLoading(false);
   };
 
   const togglePasswordVisibility = () => {

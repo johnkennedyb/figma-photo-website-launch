@@ -25,17 +25,13 @@ const SignUp: React.FC = () => {
     
     setIsLoading(true);
     
-    const { error } = await signUp(email, password, {
-      first_name: firstName,
-      last_name: lastName,
-      user_type: 'client'
-    });
-
-    setIsLoading(false);
-
+    const { error } = await signUp(email, password, firstName, lastName, 'client');
+    
     if (!error) {
       navigate('/verify-email');
     }
+    
+    setIsLoading(false);
   };
 
   return (

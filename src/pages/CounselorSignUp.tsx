@@ -19,15 +19,13 @@ const CounselorSignUp: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     
-    const { error } = await signUp(email, password, {
-      user_type: 'counselor'
-    });
-
-    setIsLoading(false);
-
+    const { error } = await signUp(email, password, '', '', 'counselor');
+    
     if (!error) {
       navigate('/counselor-verify-email');
     }
+    
+    setIsLoading(false);
   };
 
   const togglePasswordVisibility = () => {
