@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, Calendar, Wallet, Settings, LogOut, MessageSquare } from 'lucide-react';
 import QuluubLogo from './QuluubLogo';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
+import { useAuth } from '@/hooks/useAuth';
 
 interface CounselorSidebarLayoutProps {
   children: ReactNode;
@@ -16,6 +17,7 @@ const CounselorSidebarLayout: React.FC<CounselorSidebarLayoutProps> = ({
 }) => {
   const [showLogoutDialog, setShowLogoutDialog] = React.useState(false);
   const location = useLocation();
+  const { userProfile, signOut } = useAuth();
 
   const navItems = [
     { path: '/counselor-dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
@@ -26,9 +28,9 @@ const CounselorSidebarLayout: React.FC<CounselorSidebarLayoutProps> = ({
     { path: '/counselor-settings', label: 'Settings', icon: <Settings size={20} /> },
   ];
 
-  const handleLogout = () => {
-    // Logic to log out
-    window.location.href = '/';
+  const handleLogout = async () => {
+    await signOut();
+    setShowLogoutDialog(false);
   };
 
   return (
@@ -43,11 +45,15 @@ const CounselorSidebarLayout: React.FC<CounselorSidebarLayoutProps> = ({
           {/* User profile preview */}
           <div className="flex items-center mb-8">
             <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-              <span className="text-white text-sm font-medium">AB</span>
+              <span className="text-white text-sm font-medium">
+                {userProfile?.first_name?.[0]?.toUpperCase()}{userProfile?.last_name?.[0]?.toUpperCase()}
+              </span>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium">Ahay Musa B</p>
-              <p className="text-xs opacity-70">counselor@quluub.com</p>
+              <p className="text-sm font-medium">
+                {userProfile?.first_name} {userProfile?.last_name}
+              </p>
+              <p className="text-xs opacity-70">{userProfile?.email}</p>
             </div>
           </div>
           
