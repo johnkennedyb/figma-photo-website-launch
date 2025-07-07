@@ -33,6 +33,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
