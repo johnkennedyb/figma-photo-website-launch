@@ -5,27 +5,38 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AuthLayout from '@/components/AuthLayout';
 import { Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/context/AuthContext';
 
 const CounselorSignUp: React.FC = () => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const { signUp } = useAuth();
+  const { toast } = useToast();
+  const { signup } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    const { error } = await signUp(email, password, '', '', 'counselor');
-    
-    if (!error) {
-      navigate('/counselor-verify-email');
+    try {
+      await signup(name, email, password, 'counselor');
+      toast({
+        title: 'Account Created',
+        description: "Redirecting to onboarding...",
+      });
+      navigate('/counselor-onboarding/1');
+    } catch (error: any) {
+      toast({
+        title: 'Sign Up Failed',
+        description: error.message || 'An unexpected error occurred.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   const togglePasswordVisibility = () => {
@@ -43,6 +54,20 @@ const CounselorSignUp: React.FC = () => {
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <label htmlFor="name" className="text-sm font-medium">
+            Full Name*
+          </label>
+          <Input
+            id="name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="h-12 bg-teal-50 border-teal-600"
+            placeholder="Enter your full name"
+            required
+          />
+        </div>
         <div className="space-y-2">
           <label htmlFor="email" className="text-sm font-medium">
             Email address*

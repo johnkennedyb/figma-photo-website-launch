@@ -1,33 +1,21 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import AuthLayout from '@/components/AuthLayout';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 
 const CounselorVerifyEmail: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { toast } = useToast();
 
-  useEffect(() => {
-    // Handle email verification from URL params
-    const handleEmailVerification = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (data.session && user) {
-        // User is verified and logged in
-        navigate('/counselor-dashboard');
-      }
-    };
-
-    handleEmailVerification();
-  }, [user, navigate]);
-
-  const handleResendEmail = async () => {
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: user?.email || ''
+  const handleVerify = () => {
+    // Simulate verification
+    toast({
+      title: "Email verified",
+      description: "Let's complete your profile."
     });
+    navigate('/counselor-onboarding/1');
   };
 
   return (
@@ -42,10 +30,10 @@ const CounselorVerifyEmail: React.FC = () => {
         </p>
         
         <Button 
-          onClick={handleResendEmail} 
+          onClick={handleVerify} 
           className="bg-teal-600 hover:bg-teal-700 w-full md:w-32"
         >
-          Resend Email
+          Verify
         </Button>
       </div>
     </AuthLayout>

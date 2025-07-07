@@ -19,7 +19,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
     <div className="auth-layout">
       <div className="auth-card">
         {/* Left side with logo and image */}
-        <div className="w-1/2 bg-white p-8 flex flex-col">
+        <div className="w-full md:w-1/2 bg-white p-8 flex flex-col">
           <div className="mb-8 text-center" style={{textAlign:'center'}}>
           <div className="flex justify-center items-center mt-7 ">
   <QuluubLogo size="lg" />
@@ -42,7 +42,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
         </div>
         
         {/* Right side with content */}
-        <div className="w-1/2 p-8 bg-white">
+        <div className="w-full md:w-1/2 p-8 bg-white">
           {heading && (
             <h2 className="text-2xl font-semibold mb-6">{heading}</h2>
           )}

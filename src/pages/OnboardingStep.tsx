@@ -3,62 +3,58 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/components/ui/use-toast';
+import { api } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 const OnboardingStep: React.FC = () => {
   const { step } = useParams<{ step: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const currentStep = parseInt(step || '1');
-  
+  const { loadUser } = useAuth();
   const [formData, setFormData] = useState({
     dateOfBirth: '',
-    nationality: '',
-    countryOfResidence: '',
-    cityOfResidence: '',
+    country: '',
+    city: '',
     maritalStatus: '',
-    counsellingTypes: {
-      marital: false,
-      premarital: false,
-      mentalHealth: false,
-      other: ''
-    },
-    languages: {
-      yoruba: false,
-      igbo: false,
-      hausa: false
-    }
+    nationality: '',
   });
+  const currentStep = parseInt(step || '1');
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+    const handleNext = async () => {
+    // Basic validation
+    if (!formData[fieldMapping[currentStep]]) {
+      toast({
+        title: 'Field required',
+        description: `Please enter your ${stepConfigs[currentStep - 1].title.toLowerCase()}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
 
-  const handleCounsellingTypeChange = (type: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      counsellingTypes: { ...prev.counsellingTypes, [type]: checked }
-    }));
-  };
-
-  const handleLanguageChange = (language: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      languages: { ...prev.languages, [language]: checked }
-    }));
-  };
-
-  const handleNext = () => {
-    if (currentStep < 7) {
+    if (currentStep < 5) {
       navigate(`/onboarding/${currentStep + 1}`);
     } else {
-      toast({
-        title: "Onboarding complete",
-        description: "Your profile has been set up successfully"
-      });
-      navigate('/dashboard');
+      // Last step completed
+      try {
+        await api.put('/users/onboarding', formData);
+
+        await loadUser(); // Refresh user data in context
+
+        toast({
+          title: 'Onboarding complete',
+          description: 'Your profile has been set up successfully',
+        });
+        navigate('/dashboard');
+      } catch (error: any) {
+        console.error(error);
+        toast({
+          title: 'Error',
+          description: error.response?.data?.msg || 'Failed to save onboarding data',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -70,14 +66,18 @@ const OnboardingStep: React.FC = () => {
     }
   };
 
+  const fieldMapping: { [key: number]: keyof typeof formData } = {
+    1: 'dateOfBirth',
+    2: 'country',
+    3: 'city',
+    4: 'maritalStatus',
+    5: 'nationality',
+  };
+
   const stepConfigs = [
     {
       title: "Date of Birth",
       description: "Please enter your date of birth"
-    },
-    {
-      title: "Nationality",
-      description: "Please enter your nationality"
     },
     {
       title: "Country of Residence",
@@ -92,152 +92,17 @@ const OnboardingStep: React.FC = () => {
       description: "Please select the correct information applicable to you"
     },
     {
-      title: "Type of Counselling Required",
-      description: "Please select the type(s) of counselling you need"
-    },
-    {
-      title: "Languages Spoken",
-      description: "Please select the languages you speak"
+      title: "Nationality",
+      description: "Please fill the correct information"
     }
   ];
   
   const currentConfig = stepConfigs[currentStep - 1] || stepConfigs[0];
 
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <Input
-            name="dateOfBirth"
-            type="date"
-            value={formData.dateOfBirth}
-            onChange={handleInputChange}
-            placeholder="Enter your date of birth"
-            className="h-12 bg-teal-50 border-teal-600"
-          />
-        );
-      case 2:
-        return (
-          <Input
-            name="nationality"
-            value={formData.nationality}
-            onChange={handleInputChange}
-            placeholder="Enter your nationality"
-            className="h-12 bg-teal-50 border-teal-600"
-          />
-        );
-      case 3:
-        return (
-          <Input
-            name="countryOfResidence"
-            value={formData.countryOfResidence}
-            onChange={handleInputChange}
-            placeholder="Enter your country of residence"
-            className="h-12 bg-teal-50 border-teal-600"
-          />
-        );
-      case 4:
-        return (
-          <Input
-            name="cityOfResidence"
-            value={formData.cityOfResidence}
-            onChange={handleInputChange}
-            placeholder="Enter your city of residence"
-            className="h-12 bg-teal-50 border-teal-600"
-          />
-        );
-      case 5:
-        return (
-          <Input
-            name="maritalStatus"
-            value={formData.maritalStatus}
-            onChange={handleInputChange}
-            placeholder="Enter your marital status"
-            className="h-12 bg-teal-50 border-teal-600"
-          />
-        );
-      case 6:
-        return (
-          <div className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <Checkbox 
-                id="marital" 
-                checked={formData.counsellingTypes.marital}
-                onCheckedChange={(checked) => handleCounsellingTypeChange('marital', checked === true)} 
-              />
-              <label htmlFor="marital" className="text-sm">Marital</label>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <Checkbox 
-                id="premarital" 
-                checked={formData.counsellingTypes.premarital}
-                onCheckedChange={(checked) => handleCounsellingTypeChange('premarital', checked === true)} 
-              />
-              <label htmlFor="premarital" className="text-sm">Premarital</label>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <Checkbox 
-                id="mentalHealth" 
-                checked={formData.counsellingTypes.mentalHealth}
-                onCheckedChange={(checked) => handleCounsellingTypeChange('mentalHealth', checked === true)} 
-              />
-              <label htmlFor="mentalHealth" className="text-sm">Mental Health Review</label>
-            </div>
-            
-            <Input
-              name="other"
-              value={formData.counsellingTypes.other}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                counsellingTypes: { ...prev.counsellingTypes, other: e.target.value }
-              }))}
-              placeholder="Others (please specify)"
-              className="h-12 bg-teal-50 border-teal-600"
-            />
-          </div>
-        );
-      case 7:
-        return (
-          <div className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <Checkbox 
-                id="yoruba" 
-                checked={formData.languages.yoruba}
-                onCheckedChange={(checked) => handleLanguageChange('yoruba', checked === true)} 
-              />
-              <label htmlFor="yoruba" className="text-sm">Yoruba</label>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <Checkbox 
-                id="igbo" 
-                checked={formData.languages.igbo}
-                onCheckedChange={(checked) => handleLanguageChange('igbo', checked === true)} 
-              />
-              <label htmlFor="igbo" className="text-sm">Igbo</label>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <Checkbox 
-                id="hausa" 
-                checked={formData.languages.hausa}
-                onCheckedChange={(checked) => handleLanguageChange('hausa', checked === true)} 
-              />
-              <label htmlFor="hausa" className="text-sm">Hausa</label>
-            </div>
-          </div>
-        );
-      default:
-        return <div>Invalid step</div>;
-    }
-  };
-
   return (
     <div className="auth-layout">
-      <div className="bg-white rounded-lg shadow-md w-full max-w-[1067px] h-[520px] p-8">
-        <div className="flex items-center justify-center mb-6">
+<div className="bg-white rounded-lg shadow-md w-full max-w-[1067px] h-[520px] p-8">
+<div className="flex items-center justify-center mb-6">
           <img src="/lovable-uploads/quluublogosmall.png" alt="" />
         </div>
         
@@ -253,11 +118,52 @@ const OnboardingStep: React.FC = () => {
           <p className="text-gray-600 text-sm">{currentConfig.description}</p>
         </div>
         
-        <div className="mb-8 w-1/2">
-          {renderStepContent()}
+                <div className="mb-8 w-full md:w-1/2">
+          {currentStep === 1 && (
+            <Input
+              type="date"
+              value={formData.dateOfBirth}
+              onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+              className="w-full"
+            />
+          )}
+          {currentStep === 2 && (
+            <Input
+              placeholder="Enter your country"
+              value={formData.country}
+              onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+            />
+          )}
+          {currentStep === 3 && (
+            <Input
+              placeholder="Enter your city"
+              value={formData.city}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            />
+          )}
+          {currentStep === 4 && (
+            <Select onValueChange={(value) => setFormData({ ...formData, maritalStatus: value })} value={formData.maritalStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select marital status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="single">Single</SelectItem>
+                <SelectItem value="married">Married</SelectItem>
+                <SelectItem value="divorced">Divorced</SelectItem>
+                <SelectItem value="widowed">Widowed</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          {currentStep === 5 && (
+            <Input
+              placeholder="Enter your nationality"
+              value={formData.nationality}
+              onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
+            />
+          )}
         </div>
         
-        <div className="flex justify-between bottom-0" style={{marginTop:'130px'}}>
+                <div className="flex justify-between items-center mt-auto pt-8">
           <Button 
             variant="outline" 
             onClick={handlePrevious}
@@ -268,7 +174,7 @@ const OnboardingStep: React.FC = () => {
           <Button 
             onClick={handleNext}
           >
-            {currentStep === 7 ? 'Finish' : 'Next'}
+            {currentStep === 5 ? 'Finish' : 'Next'}
           </Button>
         </div>
       </div>

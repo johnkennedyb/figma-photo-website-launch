@@ -4,7 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import AuthLayout from '@/components/AuthLayout';
 import FormField from '@/components/FormField';
-import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api';
 
 const SignUp: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -13,25 +15,49 @@ const SignUp: React.FC = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
+  const { setAuthTokenAndLoadUser } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (password !== confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "Please ensure your passwords match.",
+        variant: "destructive",
+      });
       return;
     }
-    
+
     setIsLoading(true);
-    
-    const { error } = await signUp(email, password, firstName, lastName, 'client');
-    
-    if (!error) {
-      navigate('/verify-email');
+
+    try {
+      const response = await api.post('/auth/signup', {
+        name: `${firstName} ${lastName}`,
+        email,
+        password,
+        role: 'client',
+      });
+
+      const { token } = response.data;
+      await setAuthTokenAndLoadUser(token);
+      
+      toast({
+        title: 'Account created',
+        description: "Welcome to Quluub! Let's complete your profile.",
+      });
+      navigate('/onboarding/1');
+    } catch (error: any) {
+      toast({
+        title: 'Sign up failed',
+        description: error.response?.data?.msg || error.message || 'An unknown error occurred.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (
@@ -45,7 +71,7 @@ const SignUp: React.FC = () => {
       </p>
 
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField 
             label="First Name" 
             placeholder="John" 

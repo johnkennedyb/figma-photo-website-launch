@@ -5,9 +5,22 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  server: {
+    server: {
     host: "::",
     port: 8080,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3002',
+        changeOrigin: true,
+        onError(err) {
+          console.error('[Vite Proxy Error]', err);
+        },
+      },
+      '/socket.io': {
+        target: 'http://localhost:3002',
+        ws: true,
+      },
+    },
   },
   plugins: [
     react(),

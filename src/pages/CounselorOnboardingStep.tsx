@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,31 +10,74 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api';
+
+const stepConfigs = [
+  { id: 1, title: 'Full Name', description: 'Please enter your full name as you want it to appear to clients.', fields: ['name'] },
+  { id: 2, title: 'Nationality', description: 'Please enter your nationality.', fields: ['nationality'] },
+  { id: 3, title: 'Country of Residence', description: 'Where do you currently live?', fields: ['countryOfResidence'] },
+  { id: 4, title: 'City of Residence', description: 'Please provide your city.', fields: ['cityOfResidence'] },
+  { id: 5, title: 'Marital Status', description: 'Please select your marital status.', fields: ['maritalStatus'] },
+  { id: 6, title: 'Professional Background', description: 'Tell us about your qualifications and experience.', fields: ['academicQualifications', 'relevantPositions', 'yearsOfExperience'] },
+  { id: 7, title: 'Specialization & Affiliations', description: 'What are your areas of expertise?', fields: ['issuesSpecialization', 'affiliations'] },
+  { id: 8, title: 'Languages Spoken', description: 'What languages do you speak?', fields: ['languageProficiency'] },
+  { id: 9, title: 'Session Rates', description: 'Set your rates per session.', fields: ['sessionRate', 'ngnSessionRate'] },
+];
 
 const CounselorOnboardingStep: React.FC = () => {
   const { step } = useParams<{ step: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isAuthenticated, loading: authLoading, loadUser } = useAuth();
   const currentStep = parseInt(step || '1');
-  
-  const [formData, setFormData] = useState({
-    fullName: '',
-    nationality: '',
-    countryOfResidence: '',
-    cityOfResidence: '',
-    maritalStatus: '',
-    academicQualifications: '',
-    relevantPositions: '',
-    yearsOfExperience: '',
-    issuesSpecialization: '',
-    affiliations: '',
-    languages: {
-      yoruba: false,
-      igbo: false,
-      hausa: false
+
+  const [formData, setFormData] = useState(() => {
+    const savedData = localStorage.getItem('counselorOnboardingData');
+    const defaultData = {
+      name: '',
+      nationality: '',
+      countryOfResidence: '',
+      cityOfResidence: '',
+      maritalStatus: '',
+      academicQualifications: '',
+      relevantPositions: '',
+      yearsOfExperience: '',
+      issuesSpecialization: '',
+      affiliations: '',
+      languageProficiency: {
+        english: false,
+        hausa: false,
+        yoruba: false,
+        other: ''
+      },
+      sessionRate: '',
+      ngnSessionRate: ''
+    };
+
+    if (savedData) {
+      const parsedData = JSON.parse(savedData);
+      // Deep merge for languageProficiency to ensure all keys exist
+      const mergedLanguageProficiency = {
+        ...defaultData.languageProficiency,
+        ...(parsedData.languageProficiency || {}),
+      };
+      return { ...defaultData, ...parsedData, languageProficiency: mergedLanguageProficiency };
     }
+
+    return defaultData;
   });
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      navigate('/counselor-login');
+    }
+  }, [isAuthenticated, authLoading, navigate]);
+
+  useEffect(() => {
+    localStorage.setItem('counselorOnboardingData', JSON.stringify(formData));
+  }, [formData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -49,19 +91,78 @@ const CounselorOnboardingStep: React.FC = () => {
   const handleCheckboxChange = (language: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      languages: { ...prev.languages, [language]: checked }
+      languageProficiency: { ...prev.languageProficiency, [language]: checked }
     }));
   };
 
-  const handleNext = () => {
-    if (currentStep < 8) {
+  const handleLanguageInputChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      languageProficiency: { ...prev.languageProficiency, other: value }
+    }));
+  };
+
+  const validateStep = () => {
+    const currentFields = stepConfigs.find(s => s.id === currentStep)?.fields || [];
+    for (const field of currentFields) {
+      const value = formData[field as keyof typeof formData];
+      if (field === 'languageProficiency') {
+        const { english, hausa, yoruba, other } = formData.languageProficiency;
+        if (!english && !hausa && !yoruba && !other.trim()) {
+          toast({
+            title: "Validation Error",
+            description: "Please select at least one language or specify 'other'.",
+            variant: "destructive",
+          });
+          return false;
+        }
+      } else if (!value || (typeof value === 'string' && !value.trim())) {
+        toast({ title: 'Validation Error', description: `Please fill in the ${field.replace(/([A-Z])/g, ' $1').toLowerCase()} field.`, variant: 'destructive' });
+        return false;
+      } else if (['yearsOfExperience', 'sessionRate', 'ngnSessionRate'].includes(field) && isNaN(Number(value))) {
+        toast({ title: 'Validation Error', description: `Please enter a valid number for ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}.`, variant: 'destructive' });
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleNext = async () => {
+    if (!validateStep()) return;
+
+    if (currentStep < stepConfigs.length) {
       navigate(`/counselor-onboarding/${currentStep + 1}`);
     } else {
-      toast({
-        title: "Onboarding completed",
-        description: "Your profile has been created."
-      });
-      navigate('/counselor-dashboard');
+      if (!isAuthenticated) {
+        toast({ title: 'Authentication Error', description: 'You are not logged in.', variant: 'destructive' });
+        return;
+      }
+      try {
+        const languages = Object.entries(formData.languageProficiency)
+          .filter(([, isChecked]) => isChecked)
+          .map(([lang]) => lang === 'other' ? formData.languageProficiency.other : lang.charAt(0).toUpperCase() + lang.slice(1))
+          .filter(Boolean) // Remove any empty strings from 'other'
+          .join(', ');
+
+        const finalData = { ...formData, languageProficiency: languages };
+
+        await api.put('/users/counselor-onboarding', finalData);
+        await loadUser(); // Refresh user data
+
+        toast({
+          title: 'Onboarding Complete',
+          description: 'Your profile has been successfully set up.',
+        });
+        localStorage.removeItem('counselorOnboardingData');
+        navigate('/counselor-dashboard');
+      } catch (error: any) {
+        console.error('Onboarding submission failed:', error.response?.data || error);
+        toast({
+          title: 'Submission Failed',
+          description: error.response?.data?.msg || 'An unexpected error occurred. Please check the console for details.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -74,197 +175,63 @@ const CounselorOnboardingStep: React.FC = () => {
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
-        return (
-          <div className="space-y-6">
-            <h2 className="text-lg">1. Full Name</h2>
-            <Input
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleInputChange}
-              placeholder="Input your full name"
-              className="h-12 bg-teal-50 border-teal-600"
-            />
-          </div>
-        );
+        return <Input name="name" value={formData.name} onChange={handleInputChange} placeholder="e.g., Dr. Aisha Al-Fulan" />;
       case 2:
-        return (
-          <div className="space-y-6">
-            <h2 className="text-lg">2. Nationality</h2>
-            <Input
-              name="nationality"
-              value={formData.nationality}
-              onChange={handleInputChange}
-              placeholder="Input"
-              className="h-12 bg-teal-50 border-teal-600"
-            />
-          </div>
-        );
+        return <Input name="nationality" value={formData.nationality} onChange={handleInputChange} placeholder="e.g., Emirati" />;
       case 3:
-        return (
-          <div className="space-y-6">
-            <h2 className="text-lg">3. Country of Residence</h2>
-            <Input
-              name="countryOfResidence"
-              value={formData.countryOfResidence}
-              onChange={handleInputChange}
-              placeholder="Input"
-              className="h-12 bg-teal-50 border-teal-600"
-            />
-          </div>
-        );
+        return <Input name="countryOfResidence" value={formData.countryOfResidence} onChange={handleInputChange} placeholder="e.g., United Arab Emirates" />;
       case 4:
-        return (
-          <div className="space-y-6">
-            <h2 className="text-lg">4. City of Residence</h2>
-            <Input
-              name="cityOfResidence"
-              value={formData.cityOfResidence}
-              onChange={handleInputChange}
-              placeholder="Input"
-              className="h-12 bg-teal-50 border-teal-600"
-            />
-          </div>
-        );
+        return <Input name="cityOfResidence" value={formData.cityOfResidence} onChange={handleInputChange} placeholder="e.g., Dubai" />;
       case 5:
         return (
-          <div className="space-y-6">
-            <h2 className="text-lg">5. Marital Status</h2>
-            <Select
-              onValueChange={(value) => handleSelectChange('maritalStatus', value)}
-              value={formData.maritalStatus}
-            >
-              <SelectTrigger className="h-12 bg-teal-50 border-teal-600">
-                <SelectValue placeholder="Select" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="single">Single</SelectItem>
-                <SelectItem value="married">Married</SelectItem>
-                <SelectItem value="divorced">Divorced</SelectItem>
-                <SelectItem value="widowed">Widowed</SelectItem>
-                <SelectItem value="separated">Separated</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select name="maritalStatus" onValueChange={(value) => handleSelectChange('maritalStatus', value)} value={formData.maritalStatus}>
+            <SelectTrigger><SelectValue placeholder="Select marital status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="single">Single</SelectItem>
+              <SelectItem value="married">Married</SelectItem>
+              <SelectItem value="divorced">Divorced</SelectItem>
+              <SelectItem value="widowed">Widowed</SelectItem>
+            </SelectContent>
+          </Select>
         );
       case 6:
         return (
-          <div className="space-y-6">
-            <h2 className="text-lg">6. Summary of Experience/Qualification</h2>
-            <p className="text-sm text-gray-600">
-              Please provide a brief summary of your background to help clients understand your expertise.
-            </p>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm text-gray-600">
-                  Academic Qualifications <span className="italic">(Degree, certifications in counselling, psychology, Islamic studies)</span>
-                </label>
-                <Input
-                  name="academicQualifications"
-                  value={formData.academicQualifications}
-                  onChange={handleInputChange}
-                  placeholder="Input the option applicable to you"
-                  className="h-12 bg-teal-50 border-teal-600 mt-2"
-                />
-              </div>
-              
-              <div>
-                <label className="text-sm text-gray-600">
-                  Relevant Positions <span className="italic">(Imam, chaplain, therapist, community leader, marriage coach)</span>
-                </label>
-                <Input
-                  name="relevantPositions"
-                  value={formData.relevantPositions}
-                  onChange={handleInputChange}
-                  placeholder="Input the option applicable to you"
-                  className="h-12 bg-teal-50 border-teal-600 mt-2"
-                />
-              </div>
-              
-              <div>
-                <label className="text-sm text-gray-600">
-                  Years of Experience in counselling individuals or couples
-                </label>
-                <Input
-                  name="yearsOfExperience"
-                  value={formData.yearsOfExperience}
-                  onChange={handleInputChange}
-                  placeholder="Input"
-                  className="h-12 bg-teal-50 border-teal-600 mt-2"
-                />
-              </div>
-            </div>
+          <div className="space-y-4">
+            <Input name="academicQualifications" value={formData.academicQualifications} onChange={handleInputChange} placeholder="Academic Qualifications (e.g., PhD in Psychology)" />
+            <Input name="relevantPositions" value={formData.relevantPositions} onChange={handleInputChange} placeholder="Relevant Positions Held" />
+            <Input name="yearsOfExperience" value={formData.yearsOfExperience} onChange={handleInputChange} placeholder="Years of Experience" type="number" />
           </div>
         );
       case 7:
         return (
-          <div className="space-y-6">
-            <h2 className="text-lg">Summary of Experience/Qualification</h2>
-            <p className="text-sm text-gray-600">
-              Please provide a brief summary of your background to help clients understand your expertise.
-            </p>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm text-gray-600">
-                  Types of Issues You Specialise in <span className="italic">(Marital conflict resolution, premarital counselling)</span>
-                </label>
-                <Input
-                  name="issuesSpecialization"
-                  value={formData.issuesSpecialization}
-                  onChange={handleInputChange}
-                  placeholder="Input the option applicable to you"
-                  className="h-12 bg-teal-50 border-teal-600 mt-2"
-                />
-              </div>
-              
-              <div>
-                <label className="text-sm text-gray-600">
-                  Affiliations & Memberships <span className="italic">(Professional counselling bodies, Islamic organizations, community service groups)</span>
-                </label>
-                <Input
-                  name="affiliations"
-                  value={formData.affiliations}
-                  onChange={handleInputChange}
-                  placeholder="Input the option applicable to you"
-                  className="h-12 bg-teal-50 border-teal-600 mt-2"
-                />
-              </div>
+          <div className="space-y-4">
+            <Input name="issuesSpecialization" value={formData.issuesSpecialization} onChange={handleInputChange} placeholder="Issues of Specialization (e.g., Family, Marriage)" />
+            <Input name="affiliations" value={formData.affiliations} onChange={handleInputChange} placeholder="Affiliations & Memberships" />
+          </div>
+        );
+      case 9:
+        return (
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="sessionRate" className="text-sm font-medium">Session Rate (USD)</label>
+              <Input id="sessionRate" name="sessionRate" value={formData.sessionRate} onChange={handleInputChange} placeholder="e.g., 50" type="number" />
+            </div>
+            <div>
+              <label htmlFor="ngnSessionRate" className="text-sm font-medium">Session Rate (NGN)</label>
+              <Input id="ngnSessionRate" name="ngnSessionRate" value={formData.ngnSessionRate} onChange={handleInputChange} placeholder="e.g., 25000" type="number" />
             </div>
           </div>
         );
       case 8:
         return (
-          <div className="space-y-6">
-            <h2 className="text-lg">7. Languages Spoken</h2>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <Checkbox 
-                  id="yoruba" 
-                  checked={formData.languages.yoruba}
-                  onCheckedChange={(checked) => handleCheckboxChange('yoruba', checked === true)} 
-                />
-                <label htmlFor="yoruba" className="text-sm">Yoruba</label>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <Checkbox 
-                  id="igbo" 
-                  checked={formData.languages.igbo}
-                  onCheckedChange={(checked) => handleCheckboxChange('igbo', checked === true)} 
-                />
-                <label htmlFor="igbo" className="text-sm">Igbo</label>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <Checkbox 
-                  id="hausa" 
-                  checked={formData.languages.hausa}
-                  onCheckedChange={(checked) => handleCheckboxChange('hausa', checked === true)} 
-                />
-                <label htmlFor="hausa" className="text-sm">Hausa</label>
-              </div>
+          <div className="space-y-4">
+            <label>Select all applicable languages</label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center space-x-2"><Checkbox id="english" checked={formData.languageProficiency.english} onCheckedChange={(checked) => handleCheckboxChange('english', checked === true)} /><label htmlFor="english">English</label></div>
+              <div className="flex items-center space-x-2"><Checkbox id="hausa" checked={formData.languageProficiency.hausa} onCheckedChange={(checked) => handleCheckboxChange('hausa', checked === true)} /><label htmlFor="hausa">Hausa</label></div>
+              <div className="flex items-center space-x-2"><Checkbox id="yoruba" checked={formData.languageProficiency.yoruba} onCheckedChange={(checked) => handleCheckboxChange('yoruba', checked === true)} /><label htmlFor="yoruba">Yoruba</label></div>
             </div>
+            <Input name="other" value={formData.languageProficiency.other} onChange={(e) => handleLanguageInputChange(e.target.value)} placeholder="Other language(s), comma separated" />
           </div>
         );
       default:
@@ -272,38 +239,44 @@ const CounselorOnboardingStep: React.FC = () => {
     }
   };
 
+  const currentConfig = stepConfigs.find(s => s.id === currentStep) || stepConfigs[0];
+
   return (
-    <div className="min-h-screen auth-layout flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-4xl">
-        <div className="flex justify-center mb-8">
-          <img src="/lovable-uploads/quluublogosmall.png" alt="Quluub Logo" className="h-12" />
+    <div className="auth-layout">
+      <div className="bg-white rounded-lg shadow-md w-full max-w-[1067px] min-h-[520px] p-8 flex flex-col">
+        <div className="flex items-center justify-center mb-6">
+          <img src="/lovable-uploads/quluublogosmall.png" alt="Quluub Logo" />
         </div>
         
-        <div className="text-center mb-8">
-          <p className="text-gray-600">Please fill in the correct information</p>
+        <h2 className="text-xl font-medium mb-1 text-center">Please fill the correct information</h2>
+        
+        <div className="my-8">
+          <h3 className="font-medium text-lg mb-2 flex items-center">
+            <span className="bg-primary w-6 h-6 rounded-full flex items-center justify-center text-white text-sm mr-3">
+              {currentStep}
+            </span>
+            {currentConfig.title}
+          </h3>
+          <p className="text-gray-600 text-sm ml-9">{currentConfig.description}</p>
         </div>
         
-        <div className="min-h-[220px]">
+        <div className="mb-8 w-full md:w-3/4 lg:w-1/2">
           {renderStepContent()}
         </div>
         
-        <div className="flex justify-between mt-8">
-          {currentStep > 1 ? (
-            <Button
-              onClick={handlePrevious}
-              className="bg-teal-600 hover:bg-teal-700 px-8"
-            >
-              Previous
-            </Button>
-          ) : (
-            <div></div>
-          )}
-          
-          <Button
-            onClick={handleNext}
-            className="bg-white text-black border border-gray-300 hover:bg-gray-100 px-8"
+        <div className="flex justify-between items-center mt-auto pt-8">
+          <Button 
+            variant="outline" 
+            onClick={handlePrevious}
+            disabled={currentStep === 1}
           >
-            {currentStep === 8 ? "Finish" : "Next"}
+            Previous
+          </Button>
+          
+          <Button 
+            onClick={handleNext}
+          >
+            {currentStep === stepConfigs.length ? 'Finish' : 'Next'}
           </Button>
         </div>
       </div>

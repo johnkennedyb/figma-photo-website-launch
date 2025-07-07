@@ -1,9 +1,10 @@
 
 import React, { ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, MessageSquare, Settings, LogOut } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Users, Calendar, MessageSquare, Settings, LogOut, Menu } from 'lucide-react';
 import QuluubLogo from './QuluubLogo';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
+import { useAuth } from '../context/AuthContext';
 
 interface SidebarLayoutProps {
   children: ReactNode;
@@ -15,80 +16,137 @@ const SidebarLayout: React.FC<SidebarLayoutProps> = ({
   activePath
 }) => {
   const [showLogoutDialog, setShowLogoutDialog] = React.useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
+  const { user, logout, loading } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { path: '/counselors', label: 'Counsellors', icon: <Users size={20} /> },
     { path: '/sessions', label: 'Sessions', icon: <Calendar size={20} /> },
-    { path: '/chat', label: 'Messages', icon: <MessageSquare size={20} /> },
+    { path: '/messages', label: 'Messages', icon: <MessageSquare size={20} /> },
     { path: '/settings', label: 'Settings', icon: <Settings size={20} /> },
   ];
 
   const handleLogout = () => {
-    // Logic to log out
-    window.location.href = '/';
+    logout();
+    navigate('/');
   };
 
-  return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <aside className="w-64 bg-sidebar text-sidebar-foreground">
-        <div className="p-6">
-          <QuluubLogo variant="white" />
-        </div>
-        
-        <div className="px-4 py-6">
-          {/* User profile preview */}
-          <div className="flex items-center mb-8">
-            <div className="w-10 h-10 rounded-full bg-sidebar-accent flex items-center justify-center">
-              <span className="text-sidebar-accent-foreground text-sm">QC</span>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium">Quluub Client</p>
-              <p className="text-xs opacity-70">client@quluub.com</p>
-            </div>
+  const sidebarContent = (
+    <div className="flex flex-col flex-grow">
+      <div className="p-6">
+        <QuluubLogo variant="white" />
+      </div>
+      <div className="px-4 py-6 flex-grow">
+        <div className="flex items-center mb-8">
+          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+            <span className="text-white text-sm">
+              {loading ? '' : user ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'QC'}
+            </span>
           </div>
-          
-          {/* Navigation */}
-          <nav className="space-y-1">
-            {navItems.map((item) => (
-              <Link 
-                key={item.path} 
-                to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-                  (activePath === item.path || location.pathname.startsWith(item.path)) 
-                    ? 'bg-sidebar-accent text-white font-medium' 
-                    : 'hover:bg-sidebar-accent/50'
-                }`}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </Link>
-            ))}
-            
-            <button 
-              onClick={() => setShowLogoutDialog(true)}
-              className="flex items-center gap-3 px-4 py-3 rounded-md transition-colors w-full text-left hover:bg-sidebar-accent/50"
-            >
-              <LogOut size={20} />
-              <span>Log Out</span>
-            </button>
-          </nav>
+          <div className="ml-3">
+            {loading ? (
+              <div className="space-y-1">
+                <div className="h-4 bg-gray-400 rounded w-24 animate-pulse"></div>
+                <div className="h-3 bg-gray-400 rounded w-32 animate-pulse"></div>
+              </div>
+            ) : (
+              <div>
+                <p className="font-semibold">{user?.name || 'Welcome'}</p>
+                <p className="text-xs opacity-70">{user?.email || ''}</p>
+              </div>
+            )}
+          </div>
         </div>
         
-        {/* Footer logo */}
-        <div className="mt-auto p-6 pb-4 absolute bottom-0">
-          <QuluubLogo size="sm" variant="white" withText={false} />
+        <nav className="space-y-1">
+          {navItems.map((item) => (
+            <Link 
+              key={item.path} 
+              to={item.path}
+              onClick={() => setIsSidebarOpen(false)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
+                (activePath === item.path || location.pathname.startsWith(item.path)) 
+                  ? 'bg-white/20 text-white font-medium' 
+                  : 'hover:bg-white/10'
+              }`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </Link>
+          ))}
+          {user && user.role === 'admin' && (
+            <Link 
+              to="/admin/dashboard"
+              onClick={() => setIsSidebarOpen(false)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
+                (location.pathname.startsWith('/admin')) 
+                  ? 'bg-white/20 text-white font-medium' 
+                  : 'hover:bg-white/10'
+              }`}
+            >
+              <LayoutDashboard size={20} />
+              <span>Admin Dashboard</span>
+            </Link>
+          )}
+          <button 
+            onClick={() => {
+              setIsSidebarOpen(false);
+              setShowLogoutDialog(true);
+            }}
+            className="flex items-center gap-3 px-4 py-3 rounded-md transition-colors w-full text-left hover:bg-white/10"
+          >
+            <LogOut size={20} />
+            <span>Log Out</span>
+          </button>
+        </nav>
+      </div>
+      
+      <div className="p-6 pb-4">
+        <QuluubLogo size="sm" variant="white" withText={false} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen">
+      {/* Mobile sidebar */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 flex z-40 md:hidden" role="dialog" aria-modal="true">
+          <div 
+            className="fixed inset-0 bg-gray-600 bg-opacity-75" 
+            aria-hidden="true"
+            onClick={() => setIsSidebarOpen(false)}
+          ></div>
+          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-teal-600 text-white">
+            {sidebarContent}
+          </div>
         </div>
+      )}
+
+      {/* Static sidebar for desktop */}
+      <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-teal-600 text-white">
+        {sidebarContent}
       </aside>
+
+      <div className="md:pl-64 flex flex-col flex-1">
+        <div className="sticky top-0 z-10 md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3 bg-transparent">
+          <button
+            type="button"
+            className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
+            onClick={() => setIsSidebarOpen(true)}
+          >
+            <span className="sr-only">Open sidebar</span>
+            <Menu className="h-6 w-6" aria-hidden="true" />
+          </button>
+        </div>
+        <main className="flex-1">
+          {children}
+        </main>
+      </div>
       
-      {/* Main content */}
-      <main className="w-full flex-1 ">
-        {children}
-      </main>
-      
-      {/* Logout Confirmation Dialog */}
       <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

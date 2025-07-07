@@ -90,20 +90,28 @@
   }
 
   body {
-    @apply bg-teal-50/30 text-foreground;
+    @apply text-foreground;
+    background-image: url('/lovable-uploads/697326ae-a7e0-4809-91d1-9324c64faba4.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    min-height: 100vh;
   }
 }
 
 .auth-card {
-  @apply bg-white rounded-lg overflow-hidden shadow-md flex w-full max-w-4xl mx-auto;
+  @apply bg-white rounded-lg overflow-hidden shadow-md w-full max-w-4xl mx-auto flex flex-col;
+}
+
+@screen md {
+  .auth-card {
+    @apply flex-row;
+  }
 }
 
 .auth-layout {
   @apply min-h-screen flex items-center justify-center p-4;
-  background-image: url('/lovable-uploads/697326ae-a7e0-4809-91d1-9324c64faba4.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
   position: relative;
 }
 
@@ -121,13 +129,6 @@
 .auth-layout > * {
   position: relative;
   z-index: 2;
-}
-
-.dashboard-background {
-  background-image: url('/lovable-uploads/mosque.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
 }
 
 .form-input {

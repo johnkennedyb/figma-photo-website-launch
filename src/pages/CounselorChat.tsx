@@ -1,169 +1,304 @@
-
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useEffect, useState, useRef, useContext } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { toast, Toaster } from 'sonner';
 import CounselorSidebarLayout from '@/components/CounselorSidebarLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Send, Paperclip, Video, Phone, MoreHorizontal, ArrowLeft, Search, Bell } from 'lucide-react';
+import { Send, Paperclip, Video, Phone, MoreHorizontal, ArrowLeft } from 'lucide-react';
+import WherebyVideoCall from '@/components/WherebyVideoCall';
+import { api } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
+import { SocketContext, SocketProvider } from '@/context/SocketContext';
+import axios from 'axios';
 
 interface Message {
-  id: number;
+  _id: string;
+  sender: { _id: string; name: string };
+  receiver: { _id: string; name: string };
   content: string;
-  sender: 'client' | 'counselor';
-  timestamp: Date;
+  timestamp: string;
 }
 
-const CounselorChat: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  const [newMessage, setNewMessage] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      content: "Hello Ahaji, I've been feeling really overwhelmed lately",
-      sender: "client",
-      timestamp: new Date(2024, 4, 10, 14, 47)
-    },
-    {
-      id: 2,
-      content: "Thank You. Please let me a current session with you. When can it happen?",
-      sender: "counselor",
-      timestamp: new Date(2024, 4, 10, 15, 35)
-    },
-    {
-      id: 3,
-      content: "Alright, I'll check my schedule and let you know. I'm really looking forward to the counselor session",
-      sender: "client",
-      timestamp: new Date(2024, 4, 10, 22, 43)
-    }
-  ]);
+interface Client {
+  _id: string;
+  name: string;
+}
 
-  const client = {
-    id: Number(id),
-    name: 'Mr. Quadri Ajetunmobi',
-    status: 'Online'
-  };
+const CounselorChatContent: React.FC = () => {
+  const { id: clientId } = useParams<{ id: string }>();
+  const { user: counselor, isAuthenticated, loading } = useAuth();
+  const { socket } = useContext(SocketContext);
+  const navigate = useNavigate();
+
+  // State
+  const [newMessage, setNewMessage] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [client, setClient] = useState<Client | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Refs
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Jitsi State
+    const [isVideoCallActive, setIsVideoCallActive] = useState(false);
+  const [videoCallRoomUrl, setVideoCallRoomUrl] = useState('');
+  const [incomingVideoCall, setIncomingVideoCall] = useState<{ roomUrl: string; callerName: string; } | null>(null);
+
+  // Scroll to bottom of messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Load chat data and set up socket listeners
+    useEffect(() => {
+    // Wait for the authentication status to be determined
+    if (loading) {
+      return;
+    }
+
+    // Redirect if not authenticated or user data is not available
+    if (!isAuthenticated || !counselor) {
+      toast.error('Authentication required. Redirecting to login.');
+      navigate('/counselor-login');
+      return;
+    }
+
+    // Ensure the user is a counselor
+    if (counselor.role !== 'counselor') {
+      toast.error('Access Denied. You do not have permission to view this page.');
+      navigate('/counselor-login');
+      return;
+    }
+    
+    // Ensure we have a client ID from the URL
+    if (!clientId) {
+      toast.error('No client specified.');
+      navigate('/counselor-dashboard/messages');
+      return;
+    }
+
+    const loadChatData = async () => {
+      setIsLoading(true);
+      try {
+        const [clientRes, messagesRes] = await Promise.all([
+          api.get(`/users/${clientId}`),
+          api.get(`/messages/${clientId}`),
+        ]);
+        setClient(clientRes.data);
+        setMessages(messagesRes.data);
+      } catch (error) {
+        console.error('Failed to load chat data:', error);
+        toast.error('Failed to load chat data. Please try again later.');
+        navigate('/counselor-dashboard/messages');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadChatData();
+
+    if (socket) {
+      const handleReceiveMessage = (message: Message) => {
+        // Ensure the message is part of the current conversation
+        if (message.sender._id === clientId || (message.sender._id === counselor._id && message.receiver._id === clientId)) {
+          setMessages((prev) => [...prev, message]);
+        }
+      };
+
+      const handleIncomingVideoCall = (data: { roomUrl: string; callerName: string; }) => {
+        setIncomingVideoCall(data);
+        toast.info(`Incoming video call from ${data.callerName}`);
+      };
+
+      const handleVideoCallEnded = () => {
+        setIsVideoCallActive(false);
+        setVideoCallRoomUrl('');
+        toast.info('Video call has ended.');
+      };
+
+      const handleMessageError = (error: { message: string }) => {
+        toast.error(`Failed to send message: ${error.message}`);
+      };
+
+      socket.on('receive-message', handleReceiveMessage);
+      socket.on('incoming-video-call', handleIncomingVideoCall);
+      socket.on('video-call-ended', handleVideoCallEnded);
+      socket.on('message-error', handleMessageError);
+
+      // Cleanup function
+      return () => {
+        socket.off('receive-message', handleReceiveMessage);
+        socket.off('incoming-video-call', handleIncomingVideoCall);
+        socket.off('video-call-ended', handleVideoCallEnded);
+        socket.off('message-error', handleMessageError);
+      };
+    }
+  }, [socket, clientId, counselor, isAuthenticated, navigate, loading]);
 
   const handleSendMessage = () => {
-    if (newMessage.trim()) {
-      const newMsg: Message = {
-        id: messages.length + 1,
+    if (newMessage.trim() && socket && counselor && clientId) {
+      const messageData = {
+        sender: counselor._id,
+        receiver: clientId,
         content: newMessage,
-        sender: 'counselor',
-        timestamp: new Date()
       };
-      
-      setMessages([...messages, newMsg]);
+      socket.emit('send-message', messageData);
       setNewMessage('');
     }
   };
 
-  const formatTime = (date: Date) => {
+  const handleStartVideoCall = async () => {
+    if (!socket || !counselor || !clientId) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.post('/api/whereby/create-meeting', {}, {
+        headers: { 'x-auth-token': token }
+      });
+      const { roomUrl } = res.data;
+
+      setVideoCallRoomUrl(roomUrl);
+      setIsVideoCallActive(true);
+
+      socket.emit('start-video-call', { to: clientId, roomUrl, callerName: counselor.name });
+    } catch (error) {
+      console.error('Error creating video call:', error);
+    }
+  };
+
+  const handleAcceptVideoCall = () => {
+    if (incomingVideoCall) {
+      setVideoCallRoomUrl(incomingVideoCall.roomUrl);
+      setIsVideoCallActive(true);
+      setIncomingVideoCall(null);
+    }
+  };
+
+  const handleDeclineVideoCall = () => {
+    setIncomingVideoCall(null);
+  };
+
+  const handleVideoCallClose = () => {
+    if (socket && clientId) {
+      socket.emit('video-call-hang-up', { to: clientId });
+    }
+    setIsVideoCallActive(false);
+    setVideoCallRoomUrl('');
+  };
+
+  const formatTimestamp = (dateString: string) => {
+    const date = new Date(dateString);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  return (
-    <CounselorSidebarLayout activePath="/counselor-chat">
-      <div className="flex flex-col h-[calc(100vh-120px)]">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-semibold">Welcome Musa! 👋</h1>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="bg-teal-600 text-white border-teal-600 hover:bg-teal-700">
-              <Search size={16} className="mr-2" />
-              Search
-            </Button>
-            <Button size="icon" variant="ghost">
-              <Bell size={18} />
-            </Button>
-          </div>
-        </div>
+  if (isLoading) {
+    return <CounselorSidebarLayout activePath="/counselor/chat"><div className="flex items-center justify-center h-full">Loading chat...</div></CounselorSidebarLayout>;
+  }
 
-        {/* Chat header */}
-        <Card className="p-4 mb-4 flex items-center justify-between bg-white">
-          <div className="flex items-center">
-            <Button variant="ghost" size="icon" className="mr-2">
-              <ArrowLeft size={20} />
-            </Button>
-            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center mr-3">
-              <span className="text-orange-600 text-sm font-semibold">QA</span>
+  if (!counselor || !client) {
+    return <CounselorSidebarLayout activePath="/counselor/chat"><div className="flex items-center justify-center h-full">Could not load chat details.</div></CounselorSidebarLayout>;
+  }
+
+  return (
+    <>
+      <CounselorSidebarLayout activePath="/counselor/chat">
+        <Toaster richColors />
+        <div className="flex flex-col h-full">
+          <header className="flex items-center p-4 border-b">
+            <Link to="/counselor/chats">
+              <Button variant="ghost" size="icon">
+                <ArrowLeft />
+              </Button>
+            </Link>
+            <div className="ml-4">
+              <h2 className="text-lg font-bold">{client.name}</h2>
+              <p className="text-sm text-gray-500">Online</p>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold">{client.name}</h2>
-              <p className="text-gray-600 text-sm flex items-center">
-                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                179 Messages Left
-              </p>
+            <div className="ml-auto flex items-center space-x-2">
+                            <Button variant="ghost" size="icon" onClick={handleStartVideoCall}>
+                <Video />
+              </Button>
+              <Button variant="ghost" size="icon">
+                <Phone />
+              </Button>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal />
+              </Button>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" className="bg-teal-600 text-white border-teal-600 hover:bg-teal-700">
-              <Video size={18} />
-            </Button>
-            <Button variant="outline" size="icon" className="bg-teal-600 text-white border-teal-600 hover:bg-teal-700">
-              <Phone size={18} />
-            </Button>
-            <Button variant="outline" size="icon" className="bg-teal-600 text-white border-teal-600 hover:bg-teal-700">
-              <MoreHorizontal size={18} />
-            </Button>
-          </div>
-        </Card>
-        
-        {/* Date separator */}
-        <div className="text-center text-gray-500 text-sm mb-4">
-          Yesterday
-        </div>
-        
-        {/* Chat messages */}
-        <div className="flex-grow overflow-y-auto mb-4 bg-gray-50 rounded-lg p-4 space-y-4">
-          {messages.map((message) => (
-            <div key={message.id} className={`flex ${message.sender === 'counselor' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[70%] ${message.sender === 'counselor' ? 'order-2' : 'order-1'}`}>
-                {message.sender === 'client' && (
-                  <div className="flex items-center mb-1">
-                    <div className="w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center mr-2">
-                      <span className="text-orange-600 text-xs font-semibold">QA</span>
-                    </div>
-                  </div>
-                )}
-                <div className={`p-3 rounded-lg ${
-                  message.sender === 'counselor' 
-                    ? 'bg-teal-600 text-white rounded-br-none' 
-                    : 'bg-white border rounded-bl-none'
-                }`}>
-                  {message.content}
+          </header>
+
+          <main className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message._id}
+                  className={`flex ${message.sender._id === counselor._id ? 'justify-end' : 'justify-start'}`}
+                >
+                  <Card className={`p-3 max-w-xs lg:max-w-md ${message.sender._id === counselor._id ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                    <p>{message.content}</p>
+                    <span className="text-xs text-right block mt-1 opacity-75">
+                      {formatTimestamp(message.timestamp)}
+                    </span>
+                  </Card>
                 </div>
-                <div className={`text-xs mt-1 text-gray-500 ${message.sender === 'counselor' ? 'text-right' : 'text-left'}`}>
-                  {formatTime(message.timestamp)}
-                </div>
-              </div>
+              ))}
+              <div ref={messagesEndRef} />
             </div>
-          ))}
+          </main>
+
+          <footer className="p-4 border-t">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendMessage();
+              }}
+              className="flex items-center space-x-2"
+            >
+              <Button variant="ghost" size="icon">
+                <Paperclip />
+              </Button>
+              <Input
+                type="text"
+                placeholder="Type a message..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                className="flex-1"
+              />
+              <Button type="submit" size="icon">
+                <Send />
+              </Button>
+            </form>
+          </footer>
         </div>
-        
-        {/* Message input */}
-        <div className="flex items-center gap-2 bg-white p-3 rounded-lg border">
-          <Input
-            placeholder="Type Message"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-            className="flex-grow border-0 shadow-none focus-visible:ring-0"
-          />
-          <Button variant="ghost" size="icon">
-            <Paperclip size={18} />
-          </Button>
-          <Button 
-            onClick={handleSendMessage} 
-            disabled={!newMessage.trim()}
-            className="bg-teal-600 hover:bg-teal-700"
-          >
-            <Send size={18} />
-          </Button>
+      </CounselorSidebarLayout>
+
+            {isVideoCallActive && (
+        <WherebyVideoCall
+          roomUrl={videoCallRoomUrl}
+          onClose={handleVideoCallClose}
+        />
+      )}
+
+            {incomingVideoCall && !isVideoCallActive && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="p-6 text-center">
+                        <h3 className="text-lg font-semibold">Incoming Video Call from {incomingVideoCall.callerName}</h3>
+            <div className="mt-4 flex gap-4">
+                            <Button variant="outline" onClick={handleDeclineVideoCall}>Decline</Button>
+                            <Button className="bg-green-500 hover:bg-green-600" onClick={handleAcceptVideoCall}>Accept</Button>
+            </div>
+          </Card>
         </div>
-      </div>
-    </CounselorSidebarLayout>
+      )}
+    </>
   );
 };
+
+const CounselorChat: React.FC = () => (
+  <SocketProvider>
+    <CounselorChatContent />
+  </SocketProvider>
+);
 
 export default CounselorChat;

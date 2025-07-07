@@ -1,61 +1,78 @@
 
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import AuthLayout from '@/components/AuthLayout';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 
 const VerifyEmail: React.FC = () => {
-  const { user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [verificationStatus, setVerificationStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    // Handle email verification from URL params
-    const handleEmailVerification = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (data.session && user) {
-        // User is verified and logged in
-        navigate('/dashboard');
+    const token = searchParams.get('token');
+
+    if (!token) {
+      setVerificationStatus('error');
+      setErrorMessage('Verification token not found.');
+      return;
+    }
+
+    const verifyToken = async () => {
+      try {
+        await api.get(`/auth/verify-email/${token}`);
+        setVerificationStatus('success');
+        toast({
+          title: 'Email Verified',
+          description: 'Your email has been successfully verified. You can now log in.',
+        });
+        // Redirect to login after a short delay
+        setTimeout(() => navigate('/login'), 3000);
+      } catch (error: any) {
+        setVerificationStatus('error');
+        const message = error.response?.data?.msg || 'Failed to verify email. The link may be invalid or expired.';
+        setErrorMessage(message);
+        toast({ title: 'Verification Failed', description: message, variant: 'destructive' });
       }
     };
 
-    handleEmailVerification();
-  }, [user, navigate]);
+    verifyToken();
+  }, [searchParams, navigate, toast]);
 
-  const handleResendEmail = async () => {
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: user?.email || ''
-    });
-    
-    if (!error) {
-      // Show success message
-    }
-  };
+
 
   return (
     <AuthLayout 
       imageSrc="/lovable-uploads/cc86111a-8114-49bc-93ec-7f3e94c0b305.png"
       heading="Verify Your Email"
     >
-      <div className="flex flex-col items-center">
-        <div className="bg-primary/10 p-4 rounded-full mb-6">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12Z" stroke="#009688" strokeWidth="2"/>
-            <path d="M8 12L11 15L16 10" stroke="#009688" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-        
-        <h3 className="text-xl font-semibold mb-2">Verification Email Sent</h3>
-        
-        <p className="text-gray-600 text-center mb-8">
-          We've sent a verification email to your inbox. Please check your email and verify your account to continue.
-        </p>
-        
-        <Button onClick={handleResendEmail} className="w-full">
-          Resend Verification Email
-        </Button>
+      <div className="flex flex-col items-center text-center">
+        {verificationStatus === 'verifying' && (
+          <>
+            <h3 className="text-xl font-semibold mb-2">Verifying Your Email...</h3>
+            <p className="text-gray-600">Please wait while we confirm your email address.</p>
+            {/* You can add a spinner here */}
+          </>
+        )}
+        {verificationStatus === 'success' && (
+          <>
+            <h3 className="text-xl font-semibold mb-2 text-green-600">Email Verified Successfully!</h3>
+            <p className="text-gray-600">You will be redirected to the login page shortly.</p>
+          </>
+        )}
+        {verificationStatus === 'error' && (
+          <>
+            <h3 className="text-xl font-semibold mb-2 text-red-600">Verification Failed</h3>
+            <p className="text-gray-600">{errorMessage}</p>
+            <Button onClick={() => navigate('/login')} className="w-full mt-4">
+              Go to Login
+            </Button>
+          </>
+        )}
       </div>
     </AuthLayout>
   );
