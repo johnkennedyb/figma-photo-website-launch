@@ -39,19 +39,10 @@ const MessagesPage: React.FC = () => {
       }
 
       try {
-        const apiUrl = import.meta.env.VITE_API_BASE_URL;
-        const res = await fetch(`${apiUrl}/api/messages`, {
-          headers: { 'x-auth-token': token },
-        });
-
-        if (!res.ok) {
-          throw new Error('Failed to fetch conversations');
-        }
-
-        const data = await res.json();
+        const data = await api.get('/messages'); // Use the new API utility
         setConversations(data);
       } catch (error) {
-        console.error(error);
+        console.error('Failed to fetch conversations:', error); // Update error message
         toast({
           title: 'Error',
           description: 'Could not load conversations.',

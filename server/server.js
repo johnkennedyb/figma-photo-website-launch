@@ -17,39 +17,74 @@ const allowedOrigins = [
   'http://localhost:8080',
   'http://localhost:5173', // Vite default
   'http://localhost:3000', // CRA default
-  'https://figma-photo-website-launch.onrender.com',
-  'https://figma-photo-website-launch.onrender.com/socket.io'
+  process.env.RENDER_EXTERNAL_URL || 'https://figma-photo-website-launch.onrender.com',
+  process.env.RENDER_EXTERNAL_URL?.replace('http://', 'wss://') || 'wss://figma-photo-website-launch.onrender.com'
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // For production, allow any origin from quluub.nikahnavigator.com
+    if (process.env.NODE_ENV === 'production' && origin?.includes('quluub.nikahnavigator.com')) {
+      callback(null, true);
+    } else if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error(`Not allowed by CORS: ${origin}`));
     }
   },
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token', 'x-access-token'],
   credentials: true,
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  maxAge: 86400,
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
 
 const server = http.createServer(app);
+
+// Use Render's PORT environment variable
+const PORT = process.env.PORT || 3002;
+
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token', 'x-access-token'],
     transports: ['websocket', 'polling'],
     pingTimeout: 60000,
-    pingInterval: 25000
+    pingInterval: 25000,
+    maxHttpBufferSize: 1e8,
+    upgradeTimeout: 10000
   },
-  allowEIO3: true, // For backward compatibility
+  allowEIO3: true, // For backward compatibility,
   path: '/socket.io',
-  serveClient: true
+  serveClient: true,
+  allowRequest: (req, callback) => {
+    // Allow all requests in production
+    if (process.env.NODE_ENV === 'production') {
+      callback(null, true);
+    } else {
+      callback(null, allowedOrigins.includes(req.headers.origin));
+    }
+  }
+});
+
+// Add error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: err.message
+  });
+});
+
+// Start server
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`WebSocket server listening on ${process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`}`);
 });
 
 

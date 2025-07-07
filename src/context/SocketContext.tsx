@@ -29,7 +29,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         path: '/socket.io',
         secure: true,
         rejectUnauthorized: false,
-        forceNew: true
+        forceNew: true,
+        upgrade: true,
+        autoConnect: false,
+        query: {
+          client: 'web'
+        }
       });
 
       setSocket(newSocket);
@@ -44,11 +49,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsConnected(false);
       });
 
-      newSocket.on('connect_error', (err) => {
-        console.error('Socket connection error:', err.message);
-        setIsConnected(false);
-        toast({ title: 'Real-time Error', description: `Connection failed: ${err.message}`, variant: 'destructive' });
-      });
+      // newSocket.on('connect_error', (err) => {
+      //   console.error('Socket connection error:', err.message);
+      //   setIsConnected(false);
+      //   toast({ title: 'Real-time Error', description: `Connection failed: ${err.message}`, variant: 'destructive' });
+      // });
 
 
 
