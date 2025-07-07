@@ -13,10 +13,15 @@ const app = express();
 require('dotenv').config({ override: true });
 console.log('>>>>> CLIENT_URL on server start:', process.env.CLIENT_URL);
 const corsOptions = {
-  origin: [process.env.CLIENT_URL, 'http://localhost:8080'],
+  origin: [
+    process.env.CLIENT_URL,
+    'http://localhost:8080',
+    'https://quluub.nikahnavigator.com',
+    /\.onrender\.com$/,
+  ],
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
-  credentials: true
+  credentials: true,
 };
 app.use(cors(corsOptions));
 
