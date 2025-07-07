@@ -11,9 +11,11 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       '/api': {
-        target: `http://localhost:${process.env.VITE_SERVER_PORT || 3002}`,
+        target: process.env.NODE_ENV === 'production' 
+          ? process.env.VITE_API_BASE_URL || 'https://figma-photo-website-launch.onrender.com'
+          : `http://localhost:${process.env.VITE_SERVER_PORT || 3002}`,
         changeOrigin: true,
-        secure: false,
+        secure: true,
         onError(err: Error) {
           console.error('[Vite Proxy Error]', err.message);
         },
@@ -28,13 +30,24 @@ export default defineConfig(({ mode }) => ({
               message: err.message
             }));
           });
+          proxy.onProxyReq((proxyReq: any, req: any, res: any) => {
+            // Add proper headers for production
+            if (process.env.NODE_ENV === 'production') {
+              proxyReq.setHeader('Origin', process.env.VITE_API_BASE_URL);
+              proxyReq.setHeader('Referer', process.env.VITE_API_BASE_URL);
+              proxyReq.setHeader('Accept', 'application/json');
+              proxyReq.setHeader('Content-Type', 'application/json');
+            }
+          });
         }
       },
       '/socket.io': {
-        target: `http://localhost:${process.env.VITE_SERVER_PORT || 3002}`,
+        target: process.env.NODE_ENV === 'production' 
+          ? process.env.VITE_WS_BASE_URL || 'wss://figma-photo-website-launch.onrender.com'
+          : `http://localhost:${process.env.VITE_SERVER_PORT || 3002}`,
         ws: true,
         changeOrigin: true,
-        secure: false,
+        secure: true,
         logLevel: 'debug',
         onError(err: Error) {
           console.error('[Vite Socket.IO Proxy Error]', err.message);

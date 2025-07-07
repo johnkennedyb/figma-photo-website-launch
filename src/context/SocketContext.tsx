@@ -19,7 +19,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     if (token) {
-      const newSocket = io(WS_BASE_URL, {
+      const newSocket = io(process.env.NODE_ENV === 'production' 
+  ? `wss://${window.location.hostname}`
+  : WS_BASE_URL, {
         auth: { token },
         transports: ['websocket', 'polling'],
         reconnection: true,

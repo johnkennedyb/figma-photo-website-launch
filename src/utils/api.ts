@@ -27,13 +27,20 @@ export const api = {
 
   post: async (endpoint: string, data: any, token?: string) => {
     try {
-      const response = await fetch(`/api${endpoint}`, {
+      // Always use the API base URL, even in development
+      const apiUrl = process.env.NODE_ENV === 'production'
+        ? `${import.meta.env.VITE_API_BASE_URL}${endpoint}`
+        : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'}${endpoint}`;
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-auth-token': token || localStorage.getItem('token') || ''
+          'x-auth-token': token || localStorage.getItem('token') || '',
+          'Accept': 'application/json'
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(data),
+        credentials: 'include'
       });
       
       if (!response.ok) {
