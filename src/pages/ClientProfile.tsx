@@ -4,6 +4,7 @@ import CounselorSidebarLayout from '@/components/CounselorSidebarLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import API_BASE_URL from '../config';
 
 interface ClientProfileData {
   name: string;
@@ -33,7 +34,7 @@ const ClientProfile: React.FC = () => {
       }
 
       try {
-        const res = await fetch(`http://localhost:3002/api/users/client/${clientId}`, {
+            const res = await fetch(`${API_BASE_URL}/api/users/client/${clientId}`, {
           headers: { 'x-auth-token': token },
         });
 

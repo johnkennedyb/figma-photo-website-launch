@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
+import API_BASE_URL from '../config';
 
 interface CounselorProfileData {
   name: string;
@@ -34,7 +35,7 @@ const EditCounselorProfile: React.FC = () => {
       }
 
       try {
-        const res = await fetch('http://localhost:3002/api/auth', {
+            const res = await fetch(`${API_BASE_URL}/api/auth`, {
           headers: { 'x-auth-token': token },
         });
 
@@ -71,7 +72,7 @@ const EditCounselorProfile: React.FC = () => {
     const token = localStorage.getItem('token');
 
     try {
-      const res = await fetch('http://localhost:3002/api/users/profile', {
+          const res = await fetch(`${API_BASE_URL}/api/users/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
