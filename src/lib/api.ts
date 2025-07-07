@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3002/api',
+  baseURL: 'https://figma-photo-website-launch.onrender.com/api',
   headers: {
     'Content-Type': 'application/json',
   },
