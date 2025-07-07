@@ -6,20 +6,26 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   base: '/',
-    server: {
+  server: {
     host: "::",
     port: 8080,
     proxy: {
       '/api': {
-        target: 'http://localhost:3002',
+        target: `http://localhost:${process.env.VITE_SERVER_PORT || 3002}`,
         changeOrigin: true,
         onError(err) {
           console.error('[Vite Proxy Error]', err);
         },
       },
       '/socket.io': {
-        target: 'http://localhost:3002',
+        target: `http://localhost:${process.env.VITE_SERVER_PORT || 3002}`,
         ws: true,
+        changeOrigin: true,
+        secure: false,
+        logLevel: 'debug',
+        onError(err: Error) {
+          console.error('[Vite Socket.IO Proxy Error]', err.message);
+        }
       },
     },
   },

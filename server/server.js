@@ -17,7 +17,8 @@ const allowedOrigins = [
   'http://localhost:8080',
   'http://localhost:5173', // Vite default
   'http://localhost:3000', // CRA default
-  'https://figma-photo-website-launch.onrender.com'
+  'https://figma-photo-website-launch.onrender.com',
+  'https://figma-photo-website-launch.onrender.com/socket.io'
 ];
 
 const corsOptions = {
@@ -40,8 +41,15 @@ const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
     methods: ['GET', 'POST'],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token', 'x-access-token'],
+    transports: ['websocket', 'polling'],
+    pingTimeout: 60000,
+    pingInterval: 25000
   },
+  allowEIO3: true, // For backward compatibility
+  path: '/socket.io',
+  serveClient: true
 });
 
 

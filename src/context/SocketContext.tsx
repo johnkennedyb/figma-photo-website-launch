@@ -21,7 +21,15 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (token) {
       const newSocket = io(WS_BASE_URL, {
         auth: { token },
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        timeout: 10000,
+        path: '/socket.io',
+        secure: true,
+        rejectUnauthorized: false,
+        forceNew: true
       });
 
       setSocket(newSocket);
