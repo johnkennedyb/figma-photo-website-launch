@@ -18,8 +18,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     if (token) {
-      const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
-      const newSocket = io(apiUrl, {
+      const apiUrl = import.meta.env.PROD
+      ? 'https://figma-photo-website-launch.onrender.com'
+      : import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002';
+            const newSocket = io(apiUrl, {
         auth: { token },
         transports: ['websocket'],
       });

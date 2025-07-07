@@ -12,28 +12,35 @@ const app = express();
 // CORS configuration must be one of the first middleware
 require('dotenv').config({ override: true });
 console.log('>>>>> CLIENT_URL on server start:', process.env.CLIENT_URL);
+const allowedOrigins = [
+  process.env.CLIENT_URL,          // e.g. https://quluub.nikahnavigator.com
+  'http://localhost:8080',
+  'https://figma-photo-website-launch.onrender.com'
+];
+
 const corsOptions = {
-  origin: [
-    process.env.CLIENT_URL,
-    'http://localhost:8080',
-    'https://quluub.nikahnavigator.com',
-    /\.onrender\.com$/,
-  ],
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`Not allowed by CORS: ${origin}`));
+    }
+  },
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
   credentials: true,
 };
+
 app.use(cors(corsOptions));
 
-
-const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: [process.env.CLIENT_URL, 'http://localhost:8080'],
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
     credentials: true
   },
 });
+
 
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
