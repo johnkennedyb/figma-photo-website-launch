@@ -13,12 +13,11 @@ const app = express();
 require('dotenv').config({ override: true });
 console.log('>>>>> CLIENT_URL on server start:', process.env.CLIENT_URL);
 const allowedOrigins = [
-  process.env.CLIENT_URL,          // e.g. https://quluub.nikahnavigator.com
+  'https://quluub.nikahnavigator.com',
   'http://localhost:8080',
   'http://localhost:5173', // Vite default
   'http://localhost:3000', // CRA default
-  'https://figma-photo-website-launch.onrender.com',
-  'https://quluub.nikahnavigator.com'
+  'https://figma-photo-website-launch.onrender.com'
 ];
 
 const corsOptions = {

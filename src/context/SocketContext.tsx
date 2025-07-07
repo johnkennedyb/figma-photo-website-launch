@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useMemo } from '
 import io, { Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import API_BASE_URL from '../config';
+import { API_BASE_URL, WS_BASE_URL } from '../config';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -19,7 +19,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     if (token) {
-      const newSocket = io(API_BASE_URL, {
+      const newSocket = io(WS_BASE_URL, {
         auth: { token },
         transports: ['websocket'],
       });
