@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const Session = require('../models/Session');
+const Counselor = require('../models/Counselor');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
+const Review = require('../models/Review');
 
 // @route   GET api/sessions
 // @desc    Get all sessions for a user (client or counselor)
@@ -11,14 +13,14 @@ const Wallet = require('../models/Wallet');
 router.get('/', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    let sessions;
+    let sessions = []; // Initialize to empty array
 
     if (user.role === 'client') {
       sessions = await Session.find({ client: req.user.id })
-        .populate('counselor', 'name email specialty');
+        .populate('counselor', 'firstName lastName profilePicture');
     } else if (user.role === 'counselor') {
       sessions = await Session.find({ counselor: req.user.id })
-        .populate('client', 'name email');
+        .populate('client', 'firstName lastName email');
     }
 
     res.json(sessions);
@@ -33,12 +35,11 @@ router.get('/', auth, async (req, res) => {
 // @access  Private
 router.get('/list-for-counselor', auth, async (req, res) => {
   try {
-    // The user object (including role) is attached by the auth middleware
     if (req.user.role !== 'counselor') {
       return res.status(403).json({ msg: 'User is not a counselor' });
     }
     const sessions = await Session.find({ counselor: req.user.id })
-      .populate('client', 'name email')
+      .populate('client', 'firstName lastName email')
       .sort({ date: -1 });
     res.json(sessions);
   } catch (err) {
@@ -53,14 +54,13 @@ router.get('/list-for-counselor', auth, async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
   try {
     const session = await Session.findById(req.params.id)
-      .populate('client', 'name email')
-      .populate('counselor', 'name email');
+      .populate('client', 'firstName lastName email')
+      .populate('counselor', 'firstName lastName email');
 
     if (!session) {
       return res.status(404).json({ msg: 'Session not found' });
     }
 
-    // Security check: ensure the user requesting is part of the session
     if (session.client._id.toString() !== req.user.id && session.counselor._id.toString() !== req.user.id) {
       return res.status(403).json({ msg: 'User not authorized to view this session' });
     }
@@ -86,7 +86,6 @@ router.put('/:id/complete', auth, async (req, res) => {
       return res.status(404).json({ msg: 'Session not found' });
     }
 
-    // Ensure the user is part of the session
     if (session.client.toString() !== req.user.id && session.counselor.toString() !== req.user.id) {
       return res.status(403).json({ msg: 'User not authorized' });
     }
@@ -95,7 +94,6 @@ router.put('/:id/complete', auth, async (req, res) => {
       return res.status(400).json({ msg: 'Session already completed' });
     }
 
-    // Only paid sessions can be completed
     if (session.status !== 'paid') {
       return res.status(400).json({ msg: 'Session has not been paid for' });
     }
@@ -103,7 +101,6 @@ router.put('/:id/complete', auth, async (req, res) => {
     session.status = 'completed';
     await session.save();
 
-    // Credit counselor's wallet
     const counselorWallet = await Wallet.findOne({ user: session.counselor });
     if (!counselorWallet) {
         const newWallet = new Wallet({ user: session.counselor, balance: session.price });
@@ -138,17 +135,12 @@ router.put('/:id/reschedule', auth, async (req, res) => {
       return res.status(404).json({ msg: 'Session not found' });
     }
 
-    // Security check: ensure the user requesting is part of the session
     if (session.client.toString() !== req.user.id && session.counselor.toString() !== req.user.id) {
       return res.status(403).json({ msg: 'User not authorized to reschedule this session' });
     }
 
-    // Add any business logic here, e.g., prevent rescheduling too close to the session time
-
     session.date = date;
     await session.save();
-
-    // Optional: Notify the other user about the reschedule
 
     res.json(session);
   } catch (err) {
@@ -157,56 +149,127 @@ router.put('/:id/reschedule', auth, async (req, res) => {
   }
 });
 
-// @route   POST api/sessions
-// @desc    Book a new session
+// @route   POST api/sessions/schedule
+// @desc    Schedule a new session (creates a pending session before payment)
 // @access  Private
-router.post('/', auth, async (req, res) => {
-  const { counselorId, date, price } = req.body;
+router.post('/schedule', auth, async (req, res) => {
+  console.log('[Schedule Session] Received request with body:', req.body);
+  const { date, counselorId, clientId } = req.body;
+  const requester = req.user;
 
-  if (!counselorId || !date || !price) {
-    return res.status(400).json({ msg: 'Counselor, date, and price are required' });
+  try {
+    console.log(`[Schedule Session] Requester ID: ${req.user.id}, Role: ${req.user.role}`);
+    let finalClientId, finalCounselorId;
+
+    if (requester.role === 'client') {
+      // A client is booking a session for themselves with a counselor.
+      if (!counselorId) return res.status(400).json({ msg: 'Counselor ID is required.' });
+      finalClientId = requester.id;
+      finalCounselorId = counselorId;
+    } else if (requester.role === 'counselor') {
+      // A counselor is booking a session for a client.
+      if (!clientId) return res.status(400).json({ msg: 'Client ID is required.' });
+      finalClientId = clientId;
+      // The counselor making the request is the one the session is for.
+      finalCounselorId = requester.id;
+    } else {
+      return res.status(403).json({ msg: 'User role is not authorized to schedule sessions.' });
+    }
+
+    console.log(`[Schedule Session] Determined Client ID: ${finalClientId}, Counselor ID: ${finalCounselorId}`);
+
+    const counselor = await User.findById(finalCounselorId);
+    console.log(`[Schedule Session] Fetched counselor: ${counselor ? counselor.id : 'Not Found'}`);
+    if (!counselor || !counselor.sessionRate) {
+      console.error(`[Schedule Session] Error: Counselor not found or session rate is missing for counselor ${finalCounselorId}`);
+      return res.status(404).json({ msg: 'Counselor profile not found. Could not determine session rate.' });
+    }
+
+    const clientUser = await User.findById(finalClientId);
+    if (!clientUser || clientUser.role !== 'client') {
+      console.error(`[Schedule Session] Error: Client not found or invalid role for client ${finalClientId}`);
+      return res.status(404).json({ msg: 'Client user not found.' });
+    }
+
+    const newSession = new Session({
+      client: finalClientId,
+      counselor: finalCounselorId,
+      date,
+      status: 'pending_payment',
+      price: counselor.sessionRate, // Correct field name
+      currency: (counselor.currency || 'usd').toLowerCase(), // Correct enum value
+    });
+
+    await newSession.save();
+    res.status(201).json(newSession);
+
+  } catch (err) {
+    console.error('Error scheduling session:', err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// This endpoint has been removed to prevent duplication.
+// All scheduling requests should go to POST /api/sessions/schedule.
+
+
+// @route   POST api/sessions/:id/rate
+// @desc    Rate a session
+// @access  Private (Client only)
+router.post('/:id/rate', auth, async (req, res) => {
+  const { rating, comment } = req.body;
+  const { id: sessionId } = req.params;
+
+  if (!rating || rating < 1 || rating > 5) {
+    return res.status(400).json({ msg: 'A rating between 1 and 5 is required.' });
   }
 
   try {
-    const client = await User.findById(req.user.id);
-    const counselor = await User.findById(counselorId);
+    const session = await Session.findById(sessionId);
 
-    if (!client || client.role !== 'client') {
-      return res.status(403).json({ msg: 'User is not a client' });
-    }
-    if (!counselor || counselor.role !== 'counselor') {
-      return res.status(404).json({ msg: 'Counselor not found' });
+    if (!session) {
+      return res.status(404).json({ msg: 'Session not found.' });
     }
 
-    // Check client's wallet balance
-    const wallet = await Wallet.findOne({ user: req.user.id });
-    if (!wallet || wallet.balance < price) {
-      return res.status(400).json({ msg: 'Insufficient funds' });
+    if (session.client.toString() !== req.user.id) {
+      return res.status(403).json({ msg: 'You are not authorized to rate this session.' });
     }
 
-    // Deduct from wallet
-    wallet.balance -= price;
-    await wallet.save();
+    if (session.status !== 'completed') {
+        return res.status(400).json({ msg: 'Only completed sessions can be rated.' });
+    }
 
-    const newSession = new Session({
+    const existingReview = await Review.findOne({ session: sessionId });
+    if (existingReview) {
+        return res.status(400).json({ msg: 'This session has already been rated.' });
+    }
+
+    const newReview = new Review({
+      session: sessionId,
       client: req.user.id,
-      counselor: counselorId,
-      date,
-      price,
-      status: 'paid',
+      counselor: session.counselor,
+      rating,
+      comment,
     });
+    await newReview.save();
 
-    const session = await newSession.save();
+    session.status = 'rated';
+    await session.save();
 
-    // Notify counselor via Socket.IO
-    const io = req.io;
-    const userSocketMap = req.userSocketMap;
-    const counselorSocketId = userSocketMap[counselorId];
-    if (counselorSocketId) {
-      io.to(counselorSocketId).emit('new-session-booked', session);
+    const counselor = await User.findById(session.counselor);
+    if (counselor) {
+        const oldTotalRating = counselor.averageRating * counselor.reviewsCount;
+        const newReviewsCount = counselor.reviewsCount + 1;
+        const newAverageRating = (oldTotalRating + rating) / newReviewsCount;
+        
+        counselor.averageRating = newAverageRating;
+        counselor.reviewsCount = newReviewsCount;
+        
+        await counselor.save();
     }
 
-    res.json(session);
+    res.status(201).json({ msg: 'Rating submitted successfully.', review: newReview });
+
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

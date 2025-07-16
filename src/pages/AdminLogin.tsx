@@ -25,8 +25,12 @@ const AdminLogin: React.FC = () => {
       await setAuthTokenAndLoadUser(token);
       toast({ title: 'Login Successful', description: 'Redirecting to admin dashboard...' });
       navigate('/admin/dashboard');
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.msg || (error as Error).message || 'An unknown error occurred';
+    } catch (error: unknown) {
+      let errorMessage = 'An unknown error occurred';
+      if (typeof error === 'object' && error !== null) {
+        const apiError = error as { response?: { data?: { msg?: string } }; message?: string };
+        errorMessage = apiError.response?.data?.msg || apiError.message || 'An unknown error occurred';
+      }
       toast({ title: 'Login Failed', description: errorMessage, variant: 'destructive' });
     } finally {
       setIsLoading(false);

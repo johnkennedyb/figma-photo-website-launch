@@ -19,9 +19,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     if (token) {
-      const newSocket = io(process.env.NODE_ENV === 'production' 
-  ? `wss://${window.location.hostname}`
-  : WS_BASE_URL, {
+      const url = WS_BASE_URL.startsWith('http') ? WS_BASE_URL.replace(/^http/, 'ws') : WS_BASE_URL;
+      const newSocket = io(url, {
         auth: { token },
         transports: ['websocket', 'polling'],
         reconnection: true,
@@ -33,7 +32,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         rejectUnauthorized: false,
         forceNew: true,
         upgrade: true,
-        autoConnect: false,
+        autoConnect: true,
         query: {
           client: 'web'
         }

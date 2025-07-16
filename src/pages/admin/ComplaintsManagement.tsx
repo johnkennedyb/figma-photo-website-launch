@@ -1,16 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import AdminSidebarLayout from '@/components/AdminSidebarLayout';
-import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { api } from '@/lib/api';
+import { format } from 'date-fns';
+import { Loader2 } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+interface UserInfo {
+  _id: string;
+  firstName: string;
+  lastName: string;
+}
 
 interface Complaint {
   _id: string;
-  reporter: { name: string; email: string };
-  reportedUser: { name: string; email: string };
+  reporter: UserInfo;
+  reportedUser: UserInfo;
   reason: string;
   status: 'pending' | 'under_review' | 'resolved' | 'dismissed';
   createdAt: string;
@@ -20,70 +29,53 @@ const ComplaintsManagement: React.FC = () => {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { token } = useAuth();
+  const [filter, setFilter] = useState('all');
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchComplaints = async () => {
-      if (!token) return;
-      try {
-        const apiUrl = import.meta.env.VITE_API_BASE_URL;
-        const response = await fetch(`${apiUrl}/api/admin/complaints`, {
-          headers: { 'x-auth-token': token },
-        });
-        if (!response.ok) {
-          throw new Error('Failed to fetch complaints');
-        }
-        const data = await response.json();
-        setComplaints(data);
-      } catch (err) {
-        setError((err as Error).message);
-        toast({ title: 'Error', description: 'Could not load complaints.', variant: 'destructive' });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchComplaints();
-  }, [token, toast]);
-
-  const handleStatusChange = async (complaintId: string, newStatus: string) => {
+  const fetchComplaints = useCallback(async (status: string) => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const apiUrl = import.meta.env.VITE_API_BASE_URL;
-      const response = await fetch(`${apiUrl}/api/admin/complaints/${complaintId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-auth-token': token!,
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      const url = status === 'all' ? '/admin/complaints' : `/admin/complaints?status=${status}`;
+      const response = await api.get(url);
+      setComplaints(response.data);
+    } catch (err: unknown) {
+      const errorMessage = 'Could not load complaints.';
+      setError(errorMessage);
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.msg || 'Failed to update status');
-      }
+  useEffect(() => {
+    fetchComplaints(filter);
+  }, [filter, fetchComplaints]);
 
-      const updatedComplaint = await response.json();
+  const handleStatusChange = async (complaintId: string, newStatus: Complaint['status']) => {
+    try {
+      const response = await api.put(`/admin/complaints/${complaintId}/status`, { status: newStatus });
       setComplaints((prev) =>
-        prev.map((c) => (c._id === complaintId ? updatedComplaint : c))
+        prev.map((c) => (c._id === complaintId ? response.data : c))
       );
       toast({ title: 'Success', description: 'Complaint status updated.' });
-    } catch (err) {
-      toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.response?.data?.msg || 'Failed to update status', variant: 'destructive' });
     }
   };
 
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadge = (status: Complaint['status']) => {
     switch (status) {
       case 'resolved':
-        return 'default';
-      case 'dismissed':
-        return 'destructive';
-      case 'pending':
+        return <Badge className="bg-green-500">Resolved</Badge>;
       case 'under_review':
-        return 'secondary';
+        return <Badge className="bg-yellow-500">Under Review</Badge>;
+      case 'dismissed':
+        return <Badge variant="destructive">Dismissed</Badge>;
+      case 'pending':
+        return <Badge variant="secondary">Pending</Badge>;
       default:
-        return 'outline';
+        return <Badge>{status}</Badge>;
     }
   };
 
@@ -94,49 +86,70 @@ const ComplaintsManagement: React.FC = () => {
           <CardTitle>Complaints Management</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading && <p>Loading complaints...</p>}
-          {error && <p className="text-red-500">{error}</p>}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Reporter</TableHead>
-                <TableHead>Reported User</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {complaints.map((complaint) => (
-                <TableRow key={complaint._id}>
-                  <TableCell>{complaint.reporter?.name || 'N/A'}</TableCell>
-                  <TableCell>{complaint.reportedUser?.name || 'N/A'}</TableCell>
-                  <TableCell>{complaint.reason}</TableCell>
-                  <TableCell>{new Date(complaint.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(complaint.status)}>{complaint.status.replace('_', ' ')}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={complaint.status}
-                      onValueChange={(newStatus) => handleStatusChange(complaint._id, newStatus)}
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Update status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="under_review">Under Review</SelectItem>
-                        <SelectItem value="resolved">Resolved</SelectItem>
-                        <SelectItem value="dismissed">Dismissed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
+           <Tabs value={filter} onValueChange={setFilter} className="mb-4">
+            <TabsList>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="pending">Pending</TabsTrigger>
+              <TabsTrigger value="under_review">Under Review</TabsTrigger>
+              <TabsTrigger value="resolved">Resolved</TabsTrigger>
+               <TabsTrigger value="dismissed">Dismissed</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : error ? (
+             <div className="text-red-500 p-4">Error: {error}</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Reporter</TableHead>
+                  <TableHead>Reported User</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {complaints.length > 0 ? (
+                  complaints.map((complaint) => (
+                    <TableRow key={complaint._id}>
+                      <TableCell>{`${complaint.reporter?.firstName} ${complaint.reporter?.lastName}`}</TableCell>
+                      <TableCell>{`${complaint.reportedUser?.firstName} ${complaint.reportedUser?.lastName}`}</TableCell>
+                      <TableCell className="max-w-xs truncate">{complaint.reason}</TableCell>
+                      <TableCell>{format(new Date(complaint.createdAt), 'PP')}</TableCell>
+                      <TableCell>{getStatusBadge(complaint.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <Select
+                          value={complaint.status}
+                          onValueChange={(newStatus: Complaint['status']) => handleStatusChange(complaint._id, newStatus)}
+                        >
+                          <SelectTrigger className="w-[150px]">
+                            <SelectValue placeholder="Update..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="under_review">Under Review</SelectItem>
+                            <SelectItem value="resolved">Resolved</SelectItem>
+                            <SelectItem value="dismissed">Dismissed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center h-24">
+                      No complaints found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </AdminSidebarLayout>

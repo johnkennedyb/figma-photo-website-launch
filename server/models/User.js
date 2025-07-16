@@ -8,7 +8,11 @@ const UserSchema = new mongoose.Schema({
   city: { type: String },
   maritalStatus: { type: String },
   nationality: { type: String },
-  name: {
+  firstName: {
+    type: String,
+    required: true,
+  },
+  lastName: {
     type: String,
     required: true,
   },
@@ -43,9 +47,17 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  onboardingCompleted: {
+    type: Boolean,
+    default: false,
+  },
   phone: {
     type: String,
   },
+  favoriteCounselors: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   date: {
     type: Date,
     default: Date.now,
@@ -67,7 +79,20 @@ const UserSchema = new mongoose.Schema({
     default: 25000 
   },
   availability: { type: [String] },
-  rating: { type: Number, default: 0 },
+    averageRating: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 5,
+  },
+  reviewsCount: {
+    type: Number,
+    default: 0,
+  },
+  isVisible: {
+    type: Boolean,
+    default: true,
+  },
 
   // Counselor onboarding fields
   countryOfResidence: { type: String },
@@ -77,6 +102,15 @@ const UserSchema = new mongoose.Schema({
   yearsOfExperience: { type: String },
   issuesSpecialization: { type: String },
   affiliations: { type: String },
+
+  // Push notification subscription
+  pushSubscription: {
+    endpoint: String,
+    keys: {
+      p256dh: String,
+      auth: String,
+    },
+  },
 
 });
 

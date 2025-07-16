@@ -8,6 +8,10 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import { api } from '@/lib/api';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 interface Client {
   _id: string;
@@ -23,6 +27,7 @@ const ClientManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [userToDelete, setUserToDelete] = useState<Client | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [filters, setFilters] = useState({ location: '', reported: false });
   const { token } = useAuth();
   const { toast } = useToast();
 
@@ -33,16 +38,19 @@ const ClientManagement: React.FC = () => {
         return;
       }
       try {
-        const apiUrl = import.meta.env.VITE_API_BASE_URL;
-        const response = await fetch(`${apiUrl}/api/admin/users?role=client`, {
+        const params = new URLSearchParams();
+        params.append('role', 'client');
+        if (filters.location) {
+          params.append('country', filters.location);
+        }
+        if (filters.reported) {
+          params.append('reported', 'true');
+        }
+        
+        const response = await api.get(`/admin/users?${params.toString()}`, {
           headers: { 'x-auth-token': token },
         });
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.msg || 'Failed to fetch clients');
-        }
-        const data = await response.json();
-        setClients(data);
+        setClients(response.data);
       } catch (err) {
         setError((err as Error).message);
         toast({ title: 'Error', description: 'Could not load clients.', variant: 'destructive' });
@@ -51,22 +59,16 @@ const ClientManagement: React.FC = () => {
       }
     };
     fetchClients();
-  }, [token, toast]);
+  }, [token, toast, filters]);
 
-  const apiAction = async (url: string, method: string, successMessage: string, errorMessage: string) => {
+  const apiAction = async (url: string, method: 'PUT' | 'DELETE', successMessage: string) => {
     if (!token) return null;
     try {
-      const apiUrl = import.meta.env.VITE_API_BASE_URL;
-      const response = await fetch(`${apiUrl}${url}`, {
-        method,
+      const response = await api[method === 'PUT' ? 'put' : 'delete'](url, {}, {
         headers: { 'x-auth-token': token },
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.msg || errorMessage);
-      }
       toast({ title: 'Success', description: successMessage });
-      return await response.json();
+      return response.data;
     } catch (err) {
       toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
       return null;
@@ -75,8 +77,7 @@ const ClientManagement: React.FC = () => {
 
   const handleSuspend = async (clientId: string, isSuspended: boolean) => {
     const successMessage = isSuspended ? 'Client has been un-suspended.' : 'Client has been suspended.';
-    const errorMessage = 'Failed to update suspension status.';
-    const updatedClient = await apiAction(`/api/admin/users/${clientId}/suspend`, 'PUT', successMessage, errorMessage);
+    const updatedClient = await apiAction(`/api/admin/users/${clientId}/suspend`, 'PUT', successMessage);
     if (updatedClient) {
       setClients(clients.map(c => c._id === clientId ? { ...c, isSuspended: !c.isSuspended } : c));
     }
@@ -84,7 +85,7 @@ const ClientManagement: React.FC = () => {
 
   const handleDeleteConfirm = async () => {
     if (!userToDelete) return;
-    const result = await apiAction(`/api/admin/users/${userToDelete._id}`, 'DELETE', 'Client has been deleted.', 'Failed to delete client.');
+    const result = await apiAction(`/api/admin/users/${userToDelete._id}`, 'DELETE', 'Client has been deleted.');
     if (result) {
       setClients(clients.filter(c => c._id !== userToDelete._id));
     }
@@ -100,6 +101,10 @@ const ClientManagement: React.FC = () => {
     return <AdminSidebarLayout activePath="/admin/clients"><p>Error: {error}</p></AdminSidebarLayout>;
   }
 
+  const handleFilterChange = (key: string, value: string | boolean) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
   return (
     <AdminSidebarLayout activePath="/admin/clients">
       <Card>
@@ -107,6 +112,22 @@ const ClientManagement: React.FC = () => {
           <CardTitle>Client Management</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="flex items-center space-x-4 mb-4">
+            <Input
+              placeholder="Location (Country)"
+              value={filters.location}
+              onChange={(e) => handleFilterChange('location', e.target.value)}
+              className="max-w-sm"
+            />
+            <div className="flex items-center space-x-2">
+              <Switch 
+                id="reported-filter"
+                checked={filters.reported}
+                onCheckedChange={(checked) => handleFilterChange('reported', checked)}
+              />
+              <Label htmlFor="reported-filter">Show Reported Only</Label>
+            </div>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>

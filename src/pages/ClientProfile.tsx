@@ -34,7 +34,7 @@ const ClientProfile: React.FC = () => {
       }
 
       try {
-            const res = await fetch(`${API_BASE_URL}/api/users/client/${clientId}`, {
+                        const res = await fetch(`${API_BASE_URL}/users/${clientId}`, {
           headers: { 'x-auth-token': token },
         });
 

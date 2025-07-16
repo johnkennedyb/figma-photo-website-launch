@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import AuthLayout from '@/components/AuthLayout';
@@ -13,7 +13,17 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      toast({
+        title: 'Login successful',
+        description: 'Welcome back to Quluub!',
+      });
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,11 +31,7 @@ const Login: React.FC = () => {
 
     try {
       await login(email, password);
-      toast({
-        title: 'Login successful',
-        description: 'Welcome back to Quluub!',
-      });
-      navigate('/dashboard');
+      // Navigation is now handled by the useEffect hook upon isAuthenticated changing.
     } catch (error) {
       toast({
         title: 'Login failed',

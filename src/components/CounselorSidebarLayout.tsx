@@ -22,12 +22,12 @@ const CounselorSidebarLayout: React.FC<CounselorSidebarLayoutProps> = ({
   const location = useLocation();
 
   const navItems = [
-    { path: '/counselor-dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-    { path: '/counselor-requests', label: 'Requests', icon: <Users size={20} /> },
-    { path: '/counselor-wallet', label: 'Wallet', icon: <Wallet size={20} /> },
-    { path: '/counselor-sessions', label: 'Sessions', icon: <Calendar size={20} /> },
-    { path: '/counselor-dashboard/messages', label: 'Messages', icon: <MessageSquare size={20} /> },
-    { path: '/counselor-settings', label: 'Settings', icon: <Settings size={20} /> },
+    { path: '/counselor/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+    { path: '/counselor/requests', label: 'Requests', icon: <Users size={20} /> },
+    { path: '/counselor/wallet', label: 'Wallet', icon: <Wallet size={20} /> },
+    { path: '/counselor/sessions', label: 'Sessions', icon: <Calendar size={20} /> },
+    { path: '/counselor/messages', label: 'Messages', icon: <MessageSquare size={20} /> },
+    { path: '/counselor/settings', label: 'Settings', icon: <Settings size={20} /> },
   ];
 
   const handleLogout = () => {
@@ -44,7 +44,7 @@ const CounselorSidebarLayout: React.FC<CounselorSidebarLayoutProps> = ({
         <div className="flex items-center mb-8">
           <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
             <span className="text-white text-sm font-medium">
-              {loading ? '' : user ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'QC'}
+              {loading ? '' : user ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() : 'QC'}
             </span>
           </div>
           <div className="ml-3">
@@ -55,7 +55,7 @@ const CounselorSidebarLayout: React.FC<CounselorSidebarLayoutProps> = ({
               </div>
             ) : (
               <div>
-                <p className="font-semibold">{user?.name || 'Welcome'}</p>
+                <p className="font-semibold">{user ? `${user.firstName} ${user.lastName}` : ''}</p>
                 <p className="text-xs opacity-70">{user?.email || ''}</p>
               </div>
             )}

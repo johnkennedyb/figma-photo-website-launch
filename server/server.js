@@ -42,6 +42,41 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Connect Database
+connectDB();
+
+// Init Middleware
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`[Request Logger] ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+app.use(express.json());
+
+// Define Routes
+app.use('/api/users', require('./routes/users'));
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/sessions', require('./routes/sessions'));
+app.use('/api/counselors', require('./routes/counselors'));
+app.use('/api/requests', require('./routes/requests'));
+const stripeRoutes = require('./routes/stripe');
+const paystackRoutes = require('./routes/paystack');
+app.use('/api/stripe', stripeRoutes);
+app.use('/api/paystack', paystackRoutes);
+app.use('/api/messages', require('./routes/messages'));
+app.use('/api/payment', require('./routes/payment'));
+app.use('/api/wallet', require('./routes/wallet'));
+app.use('/api/zoom', require('./routes/zoom'));
+app.use('/api/bank', require('./routes/bank'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/requests', require('./routes/requests'));
+app.use('/api/upload', require('./routes/upload'));
+app.use('/api/whereby', require('./routes/whereby'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/complaints', require('./routes/complaints'));
+
+
 const server = http.createServer(app);
 
 // Use Render's PORT environment variable
@@ -105,15 +140,6 @@ io.use((socket, next) => {
   }
 });
 
-const port = process.env.PORT || 3002;
-
-// Connect Database
-connectDB();
-
-// Init Middleware
-// app.use(cors()); // Moved to the top of the file to handle pre-flight requests
-app.use(express.json({ extended: false }));
-
 let users = {}; // { userId: socketId }
 
 // Middleware to attach io and userSocketMap to req
@@ -126,20 +152,6 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
   res.send('API is running...');
 });
-
-// Define Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/sessions', require('./routes/sessions'));
-app.use('/api/upload', require('./routes/upload'));
-app.use('/api/whereby', require('./routes/whereby'));
-app.use('/api/messages', require('./routes/messages'));
-app.use('/api/wallet', require('./routes/wallet'));
-app.use('/api/counselors', require('./routes/counselors'));
-app.use('/api/payment', require('./routes/payment'));
-app.use('/api/admin', require('./routes/admin'));
-app.use('/api/requests', require('./routes/requests'));
-app.use('/api/users', require('./routes/users'));
-app.use('/api/bank', require('./routes/bank'));
 
 io.on('connection', (socket) => {
   // The user is authenticated by the io.use middleware, and socket.user is available.
@@ -154,43 +166,17 @@ io.on('connection', (socket) => {
   socket.userId = userId; // Attach userId for efficient lookup on disconnect
   console.log(`User ${userId} connected and mapped to socket ${socket.id}`);
 
-  socket.on('send-message', async (data) => {
-    console.log('[send-message] Received data:', data);
-    try {
-      const senderId = socket.userId;
-      const { receiver, content } = data;
+  socket.on('send-message', (message) => {
+    // The message is already saved to the DB via the POST /api/messages route.
+    // This event is just to relay the message to the recipient in real-time.
+    const recipientId = message.receiver._id || message.receiver;
+    const recipientSocketId = users[recipientId];
 
-      if (!receiver || !content) {
-        console.log('[send-message] Missing receiver or content.');
-        return socket.emit('message-error', { message: 'Missing receiver or content.' });
-      }
-
-      console.log(`[send-message] Creating message from sender: ${senderId} to receiver: ${receiver}`);
-      let message = new Message({ sender: senderId, receiver, content });
-      
-      console.log('[send-message] Attempting to save message to database...');
-      await message.save();
-      console.log('[send-message] Message saved successfully. Document:', message);
-
-      // Populate sender and receiver details for the client
-      message = await message.populate('sender', 'name');
-      message = await message.populate('receiver', 'name');
-      console.log('[send-message] Message populated with user names.');
-
-      // Send the message to the recipient if they are online
-      const recipientSocketId = users[receiver];
-      if (recipientSocketId) {
-        console.log(`[send-message] Recipient ${receiver} is online. Sending message to socket ${recipientSocketId}`);
-        io.to(recipientSocketId).emit('receive-message', message);
-      }
-
-      // Also send the message back to the sender to confirm it was sent and saved
-      console.log('[send-message] Sending confirmation message back to sender.');
-      socket.emit('receive-message', message);
-
-    } catch (error) {
-      console.error('[send-message] Error saving or sending message:', error);
-      socket.emit('message-error', { message: error.message || 'Failed to process message.' });
+    if (recipientSocketId) {
+      io.to(recipientSocketId).emit('receive-message', message);
+    } else {
+      // Optional: Handle case where user is not online
+      console.log(`Recipient ${recipientId} is not connected.`);
     }
   });
 

@@ -6,6 +6,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Counselor = require('../models/Counselor');
 const sendEmail = require('../utils/sendEmail');
 const crypto = require('crypto');
 
@@ -14,8 +15,21 @@ const crypto = require('crypto');
 // @access  Private
 router.get('/me', auth, async (req, res) => {
   try {
-    // The user object is already attached to the request by the auth middleware.
-    res.json(req.user);
+    // Fetch the user from the database to ensure we have the latest data
+    let user = await User.findById(req.user.id).select('-password').lean();
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // If the user is a counselor, fetch their counselor profile and merge it
+    if (user.role === 'counselor') {
+      const counselorProfile = await Counselor.findOne({ user: req.user.id }).lean();
+      if (counselorProfile) {
+        user = { ...user, ...counselorProfile };
+      }
+    }
+
+    res.json(user);
   } catch (err) {
     console.error('Error fetching user profile:', err.message);
     res.status(500).send('Server Error');
@@ -27,7 +41,8 @@ router.get('/me', auth, async (req, res) => {
 // @access  Public
 router.post('/signup',
   [
-    check('name', 'Name is required').not().isEmpty(),
+    check('firstName', 'First name is required').not().isEmpty(),
+    check('lastName', 'Last name is required').not().isEmpty(),
     check('email', 'Please include a valid email').isEmail(),
     check('password', 'Please enter a password with 6 or more characters').isLength({ min: 6 }),
     check('role', 'Role is required').not().isEmpty(),
@@ -38,7 +53,7 @@ router.post('/signup',
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, email, password, role } = req.body;
+    const { firstName, lastName, email, password, role } = req.body;
 
     try {
       let user = await User.findOne({ email });
@@ -48,7 +63,8 @@ router.post('/signup',
       }
 
       user = new User({
-        name,
+        firstName,
+        lastName,
         email,
         password,
         role,

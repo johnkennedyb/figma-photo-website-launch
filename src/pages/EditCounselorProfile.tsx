@@ -6,10 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
-import API_BASE_URL from '../config';
+import { api } from '@/lib/api';
 
 interface CounselorProfileData {
-  name: string;
+  firstName: string;
+  lastName: string;
   specialty: string;
   bio: string;
   experience: string;
@@ -28,19 +29,8 @@ const EditCounselorProfile: React.FC = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
       try {
-            const res = await fetch(`${API_BASE_URL}/api/auth`, {
-          headers: { 'x-auth-token': token },
-        });
-
-        if (!res.ok) throw new Error('Failed to fetch profile');
-        const data = await res.json();
+        const { data } = await api.get('/users/profile');
         setProfile({
           ...data,
           certifications: data.certifications || [],
@@ -69,19 +59,8 @@ const EditCounselorProfile: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
-
     try {
-          const res = await fetch(`${API_BASE_URL}/api/users/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-auth-token': token!,
-        },
-        body: JSON.stringify(profile),
-      });
-
-      if (!res.ok) throw new Error('Failed to update profile');
+      await api.put('/users/profile', profile);
 
       toast({ title: 'Success', description: 'Your profile has been updated.' });
       navigate('/counselor/dashboard'); // Or wherever counselors are redirected
@@ -104,8 +83,12 @@ const EditCounselorProfile: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="name">Name</label>
-                <Input id="name" name="name" value={profile.name || ''} onChange={handleChange} />
+                <label htmlFor="firstName">First Name</label>
+                <Input id="firstName" name="firstName" value={profile.firstName || ''} onChange={handleChange} />
+              </div>
+              <div>
+                <label htmlFor="lastName">Last Name</label>
+                <Input id="lastName" name="lastName" value={profile.lastName || ''} onChange={handleChange} />
               </div>
               <div>
                 <label htmlFor="specialty">Specialty</label>

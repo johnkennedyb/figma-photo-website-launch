@@ -1,11 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 
 interface User {
   _id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   role: 'client' | 'counselor' | 'admin';
+  onboardingCompleted?: boolean;
   phone?: string;
   dateOfBirth?: string;
   country?: string;
@@ -24,13 +27,21 @@ interface User {
   ngnSessionRate?: number;
 }
 
+interface ApiError {
+  response?: {
+    data?: {
+      msg?: string;
+    };
+  };
+}
+
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string, role: 'client' | 'counselor') => Promise<void>;
+  signup: (firstName: string, lastName: string, email: string, password: string, role: 'client' | 'counselor') => Promise<void>;
   logout: () => void;
   loadUser: () => Promise<void>;
   setAuthTokenAndLoadUser: (token: string) => Promise<void>;
@@ -39,83 +50,96 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  const logout = useCallback(() => {
-    localStorage.removeItem('token');
-    delete api.defaults.headers.common['x-auth-token'];
-    setToken(null);
-    setUser(null);
-    setIsAuthenticated(false);
-    setLoading(false);
-  }, []);
+  const navigate = useNavigate();
+  const [authState, setAuthState] = useState<{ 
+    token: string | null; 
+    user: User | null; 
+    isAuthenticated: boolean; 
+    loading: boolean; 
+  }>({ 
+    token: null, 
+    user: null, 
+    isAuthenticated: false, 
+    loading: true 
+  });
 
   const loadUser = useCallback(async () => {
-    const tokenToLoad = localStorage.getItem('token');
-    if (!tokenToLoad) {
-      setLoading(false);
+    const tokenFromStorage = localStorage.getItem('token');
+    if (!tokenFromStorage) {
+      setAuthState(prev => ({ ...prev, loading: false, isAuthenticated: false, user: null, token: null }));
+      delete api.defaults.headers.common['x-auth-token'];
       return;
     }
-    
-    api.defaults.headers.common['x-auth-token'] = tokenToLoad;
-    setLoading(true);
+
+    api.defaults.headers.common['x-auth-token'] = tokenFromStorage;
     try {
       const response = await api.get('/auth/me');
-      setUser(response.data);
-      setIsAuthenticated(true);
-      setToken(tokenToLoad);
-    } catch (error: any) {
-      console.error('Failed to load user:', error.response?.data || error);
-      logout();
-    } finally {
-      setLoading(false);
-    }
-  }, [logout]);
+      const user = response.data;
 
-  const setAuthTokenAndLoadUser = useCallback(async (newToken: string) => {
-    if (!newToken) {
-      logout();
-      return;
+      setAuthState({
+        token: tokenFromStorage,
+        isAuthenticated: true,
+        user: user,
+        loading: false,
+      });
+
+
+    } catch (error) {
+      localStorage.removeItem('token');
+      delete api.defaults.headers.common['x-auth-token'];
+      setAuthState({ token: null, user: null, isAuthenticated: false, loading: false });
     }
-    localStorage.setItem('token', newToken);
-    await loadUser();
-  }, [loadUser, logout]);
+  }, [navigate]);
 
   useEffect(() => {
     loadUser();
   }, [loadUser]);
 
+  const setAuthTokenAndLoadUser = useCallback(async (newToken: string) => {
+    localStorage.setItem('token', newToken);
+    await loadUser();
+  }, [loadUser]);
+
   const login = useCallback(async (email: string, password: string) => {
-    setLoading(true);
     try {
       const response = await api.post('/auth/login', { email, password });
-      const { token: newToken } = response.data;
-      await setAuthTokenAndLoadUser(newToken);
-    } catch (err: any) {
-      console.error('Login failed:', err.response?.data || err);
-      logout();
-      throw new Error(err.response?.data?.msg || 'An error occurred during login.');
+      await setAuthTokenAndLoadUser(response.data.token);
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      console.error('Login failed:', apiError.response?.data || err);
+      throw new Error(apiError.response?.data?.msg || 'An error occurred during login.');
     }
-  }, [setAuthTokenAndLoadUser, logout]);
+  }, [setAuthTokenAndLoadUser]);
 
-  const signup = useCallback(async (name: string, email: string, password: string, role: 'client' | 'counselor') => {
-    setLoading(true);
+  const signup = useCallback(async (firstName: string, lastName: string, email: string, password: string, role: 'client' | 'counselor') => {
     try {
-      const response = await api.post('/auth/signup', { name, email, password, role });
-      const { token: newToken } = response.data;
-      await setAuthTokenAndLoadUser(newToken);
-    } catch (err: any) {
-      console.error('Signup failed:', err.response?.data || err);
-      logout();
-      throw new Error(err.response?.data?.msg || 'An error occurred during signup.');
+      const response = await api.post('/auth/signup', { firstName, lastName, email, password, role });
+      await setAuthTokenAndLoadUser(response.data.token);
+    } catch (err: unknown) {
+      const apiError = err as ApiError;
+      console.error('Signup failed:', apiError.response?.data || err);
+      throw new Error(apiError.response?.data?.msg || 'An error occurred during signup.');
     }
-  }, [setAuthTokenAndLoadUser, logout]);
+  }, [setAuthTokenAndLoadUser]);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('token');
+    delete api.defaults.headers.common['x-auth-token'];
+    setAuthState({ token: null, user: null, isAuthenticated: false, loading: false });
+    navigate('/login');
+  }, [navigate]);
+
+  const contextValue = {
+    ...authState,
+    login,
+    signup,
+    logout,
+    loadUser,
+    setAuthTokenAndLoadUser,
+  };
 
   return (
-    <AuthContext.Provider value={{ token, user, isAuthenticated, loading, login, signup, logout, loadUser, setAuthTokenAndLoadUser }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

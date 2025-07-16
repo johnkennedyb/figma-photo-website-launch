@@ -26,7 +26,7 @@ const CounselorLogin: React.FC = () => {
         title: 'Login successful',
         description: 'Welcome back to Quluub!',
       });
-      navigate('/counselor-dashboard');
+      navigate('/counselor/dashboard');
     } catch (error) {
       toast({
         title: 'Login failed',

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const Message = require('../models/Message');
+const Session = require('../models/Session');
+const Request = require('../models/Request');
 const mongoose = require('mongoose');
 
 // @route   GET api/messages/:userId
@@ -95,10 +97,45 @@ router.get('/', auth, async (req, res) => {
 // @access  Private
 router.post('/', auth, async (req, res) => {
   const { receiver, content } = req.body;
+  const senderId = req.user.id;
+
+  if (!receiver || !content) {
+    return res.status(400).json({ msg: 'Receiver and content are required.' });
+  }
 
   try {
+    // Authorization Check: A user can only message another user if they share a paid, completed, or rated session.
+    if (req.user.role !== 'admin') {
+      console.log(`[Chat Auth] Checking for active session between ${senderId} and ${receiver}`);
+      const hasActiveSession = await Session.findOne({
+        $or: [
+          { client: senderId, counselor: receiver },
+          { client: receiver, counselor: senderId },
+        ],
+        status: { $in: ['pending', 'paid', 'completed', 'rated'] },
+      });
+
+      if (!hasActiveSession) {
+        // Fallback: allow chat if there is an accepted connection request
+        const hasAcceptedRequest = await Request.findOne({
+          $or: [
+            { client: senderId, counselor: receiver },
+            { client: receiver, counselor: senderId },
+          ],
+          status: 'accepted',
+        });
+
+        if (!hasAcceptedRequest) {
+          console.log(`[Chat Auth] Failed: No active session or accepted request between ${senderId} and ${receiver}.`);
+          return res.status(403).json({ msg: 'You can only message users with whom you have an active session or accepted request.' });
+        }
+        console.log('[Chat Auth] Success: Accepted request found.');
+      }
+      console.log(`[Chat Auth] Success: Active session found.`);
+    }
+
     let message = new Message({
-      sender: req.user.id,
+      sender: senderId,
       receiver,
       content,
     });
@@ -106,22 +143,29 @@ router.post('/', auth, async (req, res) => {
     await message.save();
 
     // Populate sender and receiver details for the client
-    message = await message.populate('sender', 'name');
-    message = await message.populate('receiver', 'name');
+    const populatedMessage = await Message.findById(message._id).populate('sender receiver', 'firstName lastName profilePicture');
 
-    // Emit the message to the recipient and sender via WebSocket
-    const recipientSocketId = req.userSocketMap[receiver];
-    if (recipientSocketId) {
-      req.io.to(recipientSocketId).emit('receive-message', message);
-    }
-    const senderSocketId = req.userSocketMap[req.user.id];
-    if (senderSocketId) {
-        req.io.to(senderSocketId).emit('receive-message', message);
+    // Emit the message to the recipient and sender via WebSocket in a safe way
+    try {
+      if (req.io && req.userSocketMap) {
+        const recipientSocketId = req.userSocketMap[receiver];
+        if (recipientSocketId) {
+          req.io.to(recipientSocketId).emit('receive-message', populatedMessage);
+        }
+        const senderSocketId = req.userSocketMap[senderId];
+        if (senderSocketId) {
+          req.io.to(senderSocketId).emit('receive-message', populatedMessage);
+        }
+      } else {
+        console.log('[Socket.IO] Not configured, skipping real-time message emission.');
+      }
+    } catch (socketError) {
+      console.error('[Socket.IO] Error emitting message:', socketError.message);
     }
 
-    res.json(message);
+    res.json(populatedMessage);
   } catch (err) {
-    console.error(err.message);
+    console.error('Error sending message:', err.message);
     res.status(500).send('Server Error');
   }
 });

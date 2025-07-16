@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Mic, MicOff, Video, VideoOff } from 'lucide-react';
+import { Socket } from 'socket.io-client';
 
 interface VideoCallProps {
-  socket: any;
+  socket: Socket;
   peerConnection: RTCPeerConnection;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;

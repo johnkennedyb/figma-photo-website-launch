@@ -5,28 +5,25 @@ const BankAccountSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
-    unique: true
   },
-  bankName: {
+  accountType: {
     type: String,
+    enum: ['local', 'international'],
     required: true,
   },
-  accountNumber: {
-    type: String,
-    required: true,
-  },
-  accountName: {
-    type: String,
-    required: true,
-  },
-  bankCode: {
-    type: String, // Required for some payment gateways like Paystack
-  },
-  country: {
-    type: String,
-    required: true,
-    enum: ['NG', 'US'] // Example countries
-  },
+  // For local (Nigerian) accounts
+  bankName: { type: String },
+  accountNumber: { type: String },
+  bankCode: { type: String },
+
+  // For all accounts
+  accountName: { type: String, required: true },
+
+  // For international accounts
+  iban: { type: String },
+  swiftBic: { type: String },
+  country: { type: String, required: true },
+
   isVerified: {
     type: Boolean,
     default: false,

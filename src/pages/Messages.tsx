@@ -4,11 +4,14 @@ import SidebarLayout from '@/components/SidebarLayout';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { api } from '@/lib/api'; // Import the api utility
 
 interface User {
   _id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   role: string;
+  profilePicture?: string;
 }
 
 interface Message {
@@ -32,17 +35,11 @@ const MessagesPage: React.FC = () => {
 
   useEffect(() => {
     const fetchConversations = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
       try {
-        const data = await api.get('/messages'); // Use the new API utility
+        const { data } = await api.get<Conversation[]>('/messages');
         setConversations(data);
       } catch (error) {
-        console.error('Failed to fetch conversations:', error); // Update error message
+        console.error('Failed to fetch conversations:', error);
         toast({
           title: 'Error',
           description: 'Could not load conversations.',
@@ -54,7 +51,7 @@ const MessagesPage: React.FC = () => {
     };
 
     fetchConversations();
-  }, [navigate, toast]);
+  }, [toast]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -77,12 +74,12 @@ const MessagesPage: React.FC = () => {
                   <Link to={`/chat/${convo.withUser._id}`}>
                     <div className="flex items-center p-3 rounded-lg hover:bg-gray-100 transition-colors">
                       <Avatar className="h-12 w-12 mr-4">
-                        <AvatarImage src={`https://ui-avatars.com/api/?name=${convo.withUser.name.replace(' ', '+')}&background=random`} />
-                        <AvatarFallback>{convo.withUser.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        <AvatarImage src={convo.withUser.profilePicture || `https://ui-avatars.com/api/?name=${convo.withUser.firstName}+${convo.withUser.lastName}&background=random`} />
+                        <AvatarFallback>{((convo.withUser.firstName?.[0] || '') + (convo.withUser.lastName?.[0] || '')).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div className="flex-grow">
                         <div className="flex justify-between items-center">
-                          <h3 className="font-semibold">{convo.withUser.name}</h3>
+                          <h3 className="font-semibold">{convo.withUser.firstName} {convo.withUser.lastName}</h3>
                           <span className="text-xs text-gray-500">{formatTime(convo.lastMessage.timestamp)}</span>
                         </div>
                         <p className="text-sm text-gray-600 truncate">{convo.lastMessage.content}</p>

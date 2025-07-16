@@ -1,157 +1,328 @@
-
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import SidebarLayout from '@/components/SidebarLayout';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { Country, State, City } from 'country-state-city';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Search } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Heart, Star, Briefcase, Languages, MessageSquare, Calendar } from 'lucide-react';
+import StarRating from '@/components/ui/StarRating';
+import SidebarLayout from '@/components/SidebarLayout';
 import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api';
+import { useToast } from '@/components/ui/use-toast';
+import { loadStripe } from '@stripe/stripe-js';
 
 interface Counselor {
   _id: string;
   name: string;
-  specialties?: string[];
-  bio?: string;
-  experience?: string;
+  specialty: string;
+  profilePicture?: string;
+  yearsOfExperience?: number;
+  education?: string;
+  languages?: string[];
   sessionRate?: number;
-  profilePicture?: string; 
+  ngnSessionRate?: number;
+  country?: string;
+  state?: string;
+  city?: string;
+  averageRating?: number;
+  isFavorite?: boolean;
+  requestStatus?: 'pending' | 'accepted' | 'declined';
+  isChatAllowed?: boolean;
 }
 
 const Counselors: React.FC = () => {
-  const [counselors, setCounselors] = useState<Counselor[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
+  const [filters, setFilters] = useState({ country: '', state: '', city: '', specialty: '' });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCounselor, setSelectedCounselor] = useState<Counselor | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currency, setCurrency] = useState('usd');
+
+  const { user } = useAuth();
   const { toast } = useToast();
-  const { token, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  useEffect(() => {
-    const fetchCounselors = async () => {
-      if (authLoading) return; // Wait for auth state to be determined
+  const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
-      if (!token) {
-        navigate('/login');
-        return;
-      }
+    const { data: counselorsData, isLoading, error } = useQuery<Counselor[]>({ queryKey: ['counselors'], queryFn: () => api.get('/counselors').then(res => res.data) });
+  const { data: requests, refetch: refetchRequests } = useQuery<any[]>({ queryKey: ['requests', user?._id], queryFn: () => api.get('/requests').then(res => res.data), enabled: !!user });
 
-      try {
-        setIsLoading(true);
-        const apiUrl = import.meta.env.VITE_API_BASE_URL;
-                const res = await fetch(`${apiUrl}/api/counselors`, {
-          headers: {
-            'x-auth-token': token,
-          },
-        });
+  const counselors = useMemo(() => {
+      if (!counselorsData) return [];
+      return counselorsData.map(counselor => {
+          const request = requests?.find(r => r.counselor === counselor._id);
+          let requestStatus = 'idle';
+          if (request) {
+              requestStatus = request.status;
+          }
+          return { ...counselor, requestStatus };
+      });
+  }, [counselorsData, requests]);
 
-        if (!res.ok) {
-          throw new Error('Failed to fetch counselors');
-        }
+  const { data: favorites = [], refetch: refetchFavorites } = useQuery<string[]>({
+    queryKey: ['favorites', user?._id],
+    queryFn: () => api.get('/users/favorites').then(res => res.data.map((fav: any) => fav._id)),
+    enabled: !!user
+  });
 
-        const data = await res.json();
-        setCounselors(data);
-      } catch (error) {
-        toast({
-          title: 'Error fetching counselors',
-          description: (error as Error).message,
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const countries = useMemo(() => Country.getAllCountries(), []);
+  const states = useMemo(() => filters.country ? State.getStatesOfCountry(filters.country) : [], [filters.country]);
+  const cities = useMemo(() => (filters.country && filters.state) ? City.getCitiesOfState(filters.country, filters.state) : [], [filters.country, filters.state]);
 
-    fetchCounselors();
-  }, [navigate, toast, token, authLoading]);
-
-  const handleBookSession = (counselorId: string) => {
-    navigate(`/book/${counselorId}`);
+  const handleFilterChange = (name: string, value: string) => {
+    setFilters(prev => ({ ...prev, [name]: value, ...(name === 'country' && { state: '', city: '' }), ...(name === 'state' && { city: '' }) }));
   };
 
-  return (
-    <SidebarLayout activePath="/counselors">
-      <div className="dashboard-background p-6">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-semibold">Counsellors</h1>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search counsellors..."
-              className="pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          </div>
-        </div>
-        
-        <Card>
-          <CardContent className="p-0">
-            {/* Desktop Table Header */}
-            <div className="hidden md:grid grid-cols-12 bg-primary/5 p-4 font-medium text-gray-700">
-              <div className="col-span-1">#</div>
-              <div className="col-span-4">Name of Counsellor</div>
-              <div className="col-span-4">Specialty</div>
-              <div className="col-span-3">Actions</div>
-            </div>
-            
-            {isLoading ? (
-              <div className="text-center py-8 text-gray-500">Loading...</div>
-            ) : counselors.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No counselors available at the moment.
-              </div>
-            ) : (
-              <>
-                {/* Desktop View */}
-                <div className="hidden md:block">
-                  {counselors.map((counselor, index) => (
-                    <div key={counselor._id} className="grid grid-cols-12 p-4 border-b items-center">
-                      <div className="col-span-1">{index + 1}</div>
-                      <div className="col-span-4 flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-gray-200 mr-4 flex-shrink-0"></div>
-                        <div>
-                          <div className="font-medium">{counselor.name}</div>
-                        </div>
-                      </div>
-                      <div className="col-span-4 text-gray-600">
-                        {counselor.specialties && counselor.specialties.length > 0 ? counselor.specialties.join(', ') : 'Not specified'}
-                      </div>
-                      <div className="col-span-3 flex gap-2">
-                        <Button size="sm" asChild>
-                          <Link to={`/counselor/${counselor._id}`}>View Profile</Link>
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleBookSession(counselor._id)}>Book Session</Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+  const filteredCounselors = useMemo(() => {
+    if (!counselors) return [];
+    return counselors
+      .map(c => ({ ...c, isFavorite: favorites.includes(c._id) }))
+      .filter(c => {
+        const searchMatch = searchTerm ? c.name.toLowerCase().includes(searchTerm.toLowerCase()) : true;
+        const countryMatch = filters.country ? c.country === filters.country : true;
+        const stateMatch = filters.state ? c.state === filters.state : true;
+        const cityMatch = filters.city ? c.city === filters.city : true;
+        const specialtyMatch = filters.specialty ? c.specialty?.toLowerCase().includes(filters.specialty.toLowerCase()) : true;
+        return searchMatch && countryMatch && stateMatch && cityMatch && specialtyMatch;
+      });
+  }, [counselors, filters, searchTerm, favorites]);
 
-                {/* Mobile View */}
-                <div className="md:hidden space-y-4 p-4">
-                  {counselors.map((counselor) => (
-                    <Card key={counselor._id} className="overflow-hidden">
-                      <CardContent className="p-4">
-                        <div className="flex items-start mb-4">
-                          <div className="w-12 h-12 rounded-full bg-gray-200 mr-4 flex-shrink-0"></div>
-                          <div className="flex-1">
-                            <h3 className="font-bold text-lg">{counselor.name}</h3>
-                            <p className="text-sm text-gray-600">
-                              {counselor.specialties && counselor.specialties.length > 0 ? counselor.specialties.join(', ') : 'Not specified'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 justify-end">
-                          <Button size="sm" asChild>
-                            <Link to={`/counselor/${counselor._id}`}>View Profile</Link>
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleBookSession(counselor._id)}>Book Session</Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </>
-            )}
+      const handleViewProfile = (counselor: Counselor) => {
+    setSelectedCounselor(counselor);
+    setIsModalOpen(true);
+  };
+
+    useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    if (query.get('payment') === 'cancel') {
+        toast({ title: 'Payment Cancelled', description: 'Your payment was cancelled.', variant: 'destructive' });
+        navigate('/counselors', { replace: true });
+    }
+  }, [location, navigate, toast]);
+
+  const handleToggleFavorite = async (counselorId: string, isFavorite: boolean) => {
+    if (!user) {
+      toast({ title: 'Please log in to manage favorites.', variant: 'destructive' });
+      return;
+    }
+    try {
+      const url = `/users/favorites/${counselorId}`;
+      if (isFavorite) {
+        await api.delete(url);
+        toast({ title: 'Removed from favorites' });
+      } else {
+        await api.post(url);
+        toast({ title: 'Added to favorites' });
+      }
+      refetchFavorites();
+    } catch (err) {
+      toast({ title: 'Error updating favorites', variant: 'destructive' });
+    }
+  };
+
+  const handlePayment = async (counselor: Counselor | null) => {
+    if (!counselor || !user) {
+        toast({ title: 'Authentication Error', description: 'Please log in to proceed with payment.', variant: 'destructive' });
+        return;
+    }
+
+            const amount = currency === 'ngn' ? counselor.ngnSessionRate : counselor.sessionRate;
+    if (!amount || typeof amount !== 'number' || amount <= 0) {
+        toast({ title: 'Invalid session rate', description: 'This counselor has not set a valid session rate.', variant: 'destructive' });
+        return;
+    }
+
+    try {
+        const { data } = await api.post('/payment/create-checkout-session', {
+            counselorId: counselor._id,
+            clientId: user._id,
+            currency,
+            amount: amount * 100, // Convert to cents/kobo
+            success_url: `${window.location.origin}/payment/verify?provider=stripe&counselor_id=${counselor._id}&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${window.location.origin}/counselors?payment=cancel`,
+        });
+
+      if (data.provider === 'stripe') {
+            const stripe = await stripePromise;
+            if (stripe && data.id) {
+                await stripe.redirectToCheckout({ sessionId: data.id });
+            } else {
+                throw new Error('Stripe is not initialized or session ID is missing.');
+            }
+        } else if (data.provider === 'paystack') {
+            window.location.href = data.authorization_url;
+        }
+
+    } catch (error: any) {
+        console.error('Payment Error:', error);
+        const errorMessage = error.response?.data?.msg || 'Failed to initiate payment session.';
+        toast({ title: 'Payment Error', description: errorMessage, variant: 'destructive' });
+    }
+  };
+
+  if (isLoading) return <SidebarLayout activePath={location.pathname}><div>Loading...</div></SidebarLayout>;
+  if (error) return <SidebarLayout activePath={location.pathname}><div>Error loading counselors.</div></SidebarLayout>;
+
+  return (
+    <SidebarLayout activePath={location.pathname}>
+      <div className="container mx-auto p-4 md:p-8">
+        <h1 className="text-3xl font-bold mb-6">Find a Counselor</h1>
+        
+        <Card className="mb-8">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Input 
+                placeholder="Search by name..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="lg:col-span-2"
+              />
+              <Select onValueChange={value => handleFilterChange('country', value)} value={filters.country}>
+                <SelectTrigger><SelectValue placeholder="Country" /></SelectTrigger>
+                <SelectContent>
+                  {countries.map(c => <SelectItem key={c.isoCode} value={c.isoCode}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select onValueChange={value => handleFilterChange('state', value)} value={filters.state} disabled={!filters.country}>
+                <SelectTrigger><SelectValue placeholder="State" /></SelectTrigger>
+                <SelectContent>
+                  {states.map(s => <SelectItem key={s.isoCode} value={s.isoCode}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select onValueChange={value => handleFilterChange('city', value)} value={filters.city} disabled={!filters.state}>
+                <SelectTrigger><SelectValue placeholder="City" /></SelectTrigger>
+                <SelectContent>
+                  {cities.map(c => <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredCounselors.map(counselor => (
+            <Card key={counselor._id} className="flex flex-col">
+              <CardHeader className="flex-row items-start gap-4 p-4">
+                <Avatar className="w-16 h-16">
+                  <AvatarImage src={counselor.profilePicture} alt={counselor.name} />
+                  <AvatarFallback>{counselor.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <CardTitle className="text-xl">{counselor.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">{counselor.specialty}</p>
+                  <StarRating rating={counselor.averageRating || 0} />
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => handleToggleFavorite(counselor._id, !!counselor.isFavorite)}>
+                  <Heart className={`w-6 h-6 ${counselor.isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-400'}`} />
+                </Button>
+              </CardHeader>
+              <CardContent className="p-4 flex-grow">
+                <div className="flex items-center gap-2 mb-2">
+                  <Briefcase className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm">{counselor.yearsOfExperience || 'N/A'} years of experience</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Languages className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm">{counselor.languages?.join(', ') || 'N/A'}</span>
+                </div>
+              </CardContent>
+              <DialogFooter className="p-4 border-t">
+                <Button onClick={() => handleViewProfile(counselor)} className="w-full">View Profile</Button>
+              </DialogFooter>
+            </Card>
+          ))}
+        </div>
+
+        {selectedCounselor && (
+          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Counselor Profile</DialogTitle>
+              </DialogHeader>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-6">
+                <div className="md:col-span-1 flex flex-col items-center text-center">
+                  <Avatar className="w-32 h-32 mb-4">
+                    <AvatarImage src={selectedCounselor.profilePicture} alt={selectedCounselor.name} />
+                    <AvatarFallback>{selectedCounselor.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <h2 className="text-2xl font-bold">{selectedCounselor.name}</h2>
+                  <p className="text-muted-foreground">{selectedCounselor.specialty}</p>
+                  <StarRating rating={selectedCounselor.averageRating || 0} />
+                </div>
+                <div className="md:col-span-2 space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-lg mb-2">About</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Experienced counselor specializing in {selectedCounselor.specialty}. Dedicated to providing a safe and supportive environment for clients.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <h4 className="font-semibold">Experience</h4>
+                      <p>{selectedCounselor.yearsOfExperience || 'N/A'} years</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold">Education</h4>
+                      <p>{selectedCounselor.education || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold">Languages</h4>
+                      <p>{selectedCounselor.languages?.join(', ') || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold">Location</h4>
+                      <p>{selectedCounselor.city}, {selectedCounselor.country}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter className="flex-col sm:flex-row sm:justify-between items-center gap-4 pt-6 border-t">
+                 <div className='flex items-center gap-2'>
+                    <p className='font-bold text-lg'>
+                        {currency === 'ngn' 
+                            ? `₦${selectedCounselor.ngnSessionRate || 'N/A'}` 
+                            : `$${selectedCounselor.sessionRate || 'N/A'}`}
+                    </p>
+                    <Select onValueChange={setCurrency} defaultValue={currency}>
+                      <SelectTrigger className="w-full sm:w-[100px]">
+                        <SelectValue placeholder="Currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="usd">USD</SelectItem>
+                        <SelectItem value="ngn">NGN</SelectItem>
+                      </SelectContent>
+                    </Select>
+                 </div>
+                
+                <div className="flex gap-2">
+                    {selectedCounselor.isChatAllowed ? (
+                      <Button
+                        onClick={() => navigate(`/chat/${selectedCounselor._id}`)}
+                        className="bg-green-500 hover:bg-green-600 text-white w-full sm:w-auto"
+                      >
+                        <MessageSquare className="mr-2 h-4 w-4"/> Chat
+                      </Button>
+                    ) : selectedCounselor.requestStatus === 'pending' ? (
+                      <Button disabled className="w-full sm:w-auto">Request Pending</Button>
+                    ) : (
+                      <Button
+                        onClick={() => handlePayment(selectedCounselor)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white w-full sm:w-auto"
+                      >
+                        Pay to Send Request
+                      </Button>
+                    )}
+                    
+                </div>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </SidebarLayout>
   );

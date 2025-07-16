@@ -11,6 +11,8 @@ import {
   Briefcase, 
   CalendarClock, 
   MessageSquareWarning,
+  Settings,
+  Mail,
   Menu
 } from 'lucide-react';
 
@@ -31,11 +33,13 @@ const AdminSidebarLayout: React.FC<AdminSidebarLayoutProps> = ({ children, activ
 
   const navItems = [
     { path: '/admin/dashboard', icon: <LayoutDashboard className="h-5 w-5" />, label: 'Dashboard' },
-    { path: '/admin/clients', icon: <Users className="h-5 w-5" />, label: 'Clients' },
-    { path: '/admin/users', icon: <Briefcase className="h-5 w-5" />, label: 'Counselors' },
+    { path: '/admin/users', icon: <Users className="h-5 w-5" />, label: 'Users' },
+    { path: '/admin/counselors', icon: <Briefcase className="h-5 w-5" />, label: 'Counselors' },
     { path: '/admin/sessions', icon: <CalendarClock className="h-5 w-5" />, label: 'Sessions' },
     { path: '/admin/transactions', icon: <DollarSign className="h-5 w-5" />, label: 'Transactions' },
-    { path: '/admin/complaints', icon: <MessageSquareWarning className="h-5 w-5" />, label: 'Complaints' }
+    { path: '/admin/complaints', icon: <MessageSquareWarning className="h-5 w-5" />, label: 'Complaints' },
+    { path: '/admin/settings', icon: <Settings className="h-5 w-5" />, label: 'Settings' },
+    { path: '/admin/communications', icon: <Mail className="h-5 w-5" />, label: 'Communications' }
   ];
 
   const sidebarContent = (
@@ -62,7 +66,7 @@ const AdminSidebarLayout: React.FC<AdminSidebarLayoutProps> = ({ children, activ
       <div className="p-4 border-t">
         <div className="flex items-center mb-4">
           <div className="ml-3">
-            <p className="text-sm font-medium text-white">{user?.name || 'Admin'}</p>
+            <p className="text-sm font-medium text-white">{user ? `${user.firstName} ${user.lastName}` : 'Admin'}</p>
             <p className="text-xs text-white/70">{user?.email}</p>
           </div>
         </div>

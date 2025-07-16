@@ -6,17 +6,47 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { useToast } from '@/components/ui/use-toast';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 
+// List of Nigerian banks for the dropdown. Keeping as a constant avoids hard-coding in JSX.
+const NIGERIAN_BANKS = [
+  'Access Bank',
+  'Citibank',
+  'Ecobank',
+  'Fidelity Bank',
+  'First Bank',
+  'First City Monument Bank',
+  'Globus Bank',
+  'GTBank',
+  'Heritage Bank',
+  'Keystone Bank',
+  'Kuda Bank',
+  'Opay',
+  'Polaris Bank',
+  'Providus Bank',
+  'Stanbic IBTC Bank',
+  'Standard Chartered Bank',
+  'Sterling Bank',
+  'SunTrust Bank',
+  'Union Bank',
+  'UBA',
+  'Unity Bank',
+  'Wema Bank',
+  'Zenith Bank',
+];
+
 interface BankAccount {
+  _id?: string; // comes from backend after save
+  accountType: 'local' | 'international';
   accountName: string;
   accountNumber: string;
   bankName: string;
   country: string;
-  bankCode?: string;
+  iban?: string;
+  swiftBic?: string;
 }
 
 interface Withdrawal {
@@ -30,11 +60,13 @@ interface Withdrawal {
 const CounselorWallet: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('withdraw');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [balance, setBalance] = useState(0);
   const [bankDetails, setBankDetails] = useState<BankAccount>({
+    accountType: 'local',
     accountName: '',
     accountNumber: '',
     bankName: '',
@@ -43,37 +75,42 @@ const CounselorWallet: React.FC = () => {
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
 
+  const fetchBankDetails = useCallback(async () => {
+    try {
+      const { data } = await api.get('/wallet/bank-accounts');
+      if (data && data.length > 0) {
+        // Assuming the counselor has only one bank account for simplicity
+        setBankDetails(data[0]);
+      }
+    } catch (error) {
+      // It's okay if this fails (e.g., 404), it just means no bank details are saved yet.
+      console.error('Could not fetch bank details, maybe none are set up.', error);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const results = await Promise.allSettled([
-          api.get('/wallet/details'),
-          api.get('/wallet/withdrawals'),
-        ]);
+        const { data } = await api.get('/wallet');
+        setBalance(data.balance || 0);
 
-        if (results[0].status === 'fulfilled') {
-          const { balance, bankDetails } = results[0].value.data;
-          setBalance(balance || 0);
-          if (bankDetails) {
-            setBankDetails(bankDetails);
-          }
-        } else {
-          toast.error('Failed to fetch wallet details.');
-          console.error('Wallet details fetch error:', results[0].reason.response?.data || results[0].reason);
-        }
+        const withdrawalHistory = data.transactions
+          .filter((tx: any) => tx.type === 'debit')
+          .map((tx: any) => ({ ...tx, createdAt: tx.date }));
 
-        if (results[1].status === 'fulfilled') {
-          setWithdrawals(results[1].value.data);
-        } else {
-          // A 404 is expected if no withdrawals are found.
-          if (results[1].reason.response?.status !== 404) {
-            toast.error('Failed to fetch withdrawal history.');
-            console.error('Withdrawals fetch error:', results[1].reason.response?.data || results[1].reason);
-          }
+        setWithdrawals(withdrawalHistory);
+
+        // After fetching wallet, get bank details
+        await fetchBankDetails();
+
+      } catch (error: unknown) {
+        let errorMessage = 'An unexpected error occurred while fetching wallet data.';
+        if (typeof error === 'object' && error !== null && 'response' in error) {
+          const apiError = error as { response?: { data?: { msg?: string } } };
+          errorMessage = apiError.response?.data?.msg || errorMessage;
         }
-      } catch (error) {
-        toast.error('An unexpected error occurred while fetching wallet data.');
+        toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
         console.error('Generic fetch data error:', error);
       } finally {
         setIsLoading(false);
@@ -85,7 +122,7 @@ const CounselorWallet: React.FC = () => {
     } else if (!authLoading) {
       setIsLoading(false);
     }
-  }, [isAuthenticated, authLoading]);
+  }, [isAuthenticated, authLoading, toast, fetchBankDetails]);
 
   const handleBankDetailsChange = (e: React.ChangeEvent<HTMLInputElement> | string, field: keyof BankAccount) => {
     const value = typeof e === 'string' ? e : e.target.value;
@@ -95,12 +132,18 @@ const CounselorWallet: React.FC = () => {
   const handleSaveBankDetails = async () => {
     setIsSaving(true);
     try {
-      const { data } = await api.post('/wallet/bank-details', bankDetails);
+      // There's no PUT, so we just POST. The backend should handle conflicts if necessary.
+      const { data } = await api.post('/wallet/bank-accounts', bankDetails);
       setBankDetails(data);
-      toast.success('Bank details saved successfully');
+      toast({ title: 'Success', description: 'Bank details saved successfully' });
       setActiveTab('withdraw');
-    } catch (error: any) {
-      toast.error(error.response?.data?.msg || 'Failed to save bank details');
+    } catch (error: unknown) {
+      let errorMessage = 'Failed to save bank details';
+      if (typeof error === 'object' && error !== null && 'response' in error) {
+        const apiError = error as { response?: { data?: { msg?: string } } };
+        errorMessage = apiError.response?.data?.msg || errorMessage;
+      }
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -108,21 +151,26 @@ const CounselorWallet: React.FC = () => {
 
   const handleWithdrawal = async () => {
     if (parseFloat(withdrawalAmount) <= 0) {
-      toast.error('Please enter a valid amount.');
+      toast({ title: 'Invalid Amount', description: 'Please enter a valid amount.', variant: 'destructive' });
       return;
     }
     setIsSaving(true);
     try {
-      const { data } = await api.post('/bank/withdraw', {
+      const { data } = await api.post('/wallet/withdraw', {
         amount: parseFloat(withdrawalAmount),
-        currency: 'NGN',
+        bankAccountId: bankDetails._id,
       });
       setBalance(data.newBalance);
       setWithdrawals([data.withdrawal, ...withdrawals]);
       setWithdrawalAmount('');
-      toast.success('Withdrawal request submitted!');
-    } catch (error: any) { 
-      toast.error(error.response?.data?.msg || 'Withdrawal failed');
+      toast({ title: 'Success', description: 'Withdrawal request submitted!' });
+    } catch (error: unknown) {
+      let errorMessage = 'Withdrawal failed';
+      if (typeof error === 'object' && error !== null) {
+        const apiError = error as { response?: { data?: { msg?: string } } };
+        errorMessage = apiError.response?.data?.msg || errorMessage;
+      }
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -130,14 +178,14 @@ const CounselorWallet: React.FC = () => {
 
   if (isLoading || authLoading) {
     return (
-      <CounselorSidebarLayout activePath="/counselor-wallet">
+      <CounselorSidebarLayout activePath="/counselor/wallet">
         <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>
       </CounselorSidebarLayout>
     );
   }
 
   return (
-    <CounselorSidebarLayout activePath="/counselor-wallet">
+    <CounselorSidebarLayout activePath="/counselor/wallet">
       <div className="dashboard-background min-h-screen p-6">
         <h1 className="text-2xl font-semibold mb-8 text-white">Wallet</h1>
         <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-sm overflow-hidden">
@@ -152,7 +200,11 @@ const CounselorWallet: React.FC = () => {
                 {/* <h2 className="text-lg font-semibold text-gray-800">Your Bank Account</h2> */}
                 <div><Label>Account Name</Label><Input name="accountName" value={bankDetails.accountName} onChange={(e) => handleBankDetailsChange(e, 'accountName')} placeholder="e.g., John Doe" /></div>
                 <div><Label>Account Number</Label><Input name="accountNumber" value={bankDetails.accountNumber} onChange={(e) => handleBankDetailsChange(e, 'accountNumber')} placeholder="e.g., 0123456789" /></div>
-                <div><Label>Bank Name</Label><Select onValueChange={(value) => handleBankDetailsChange(value, 'bankName')} value={bankDetails.bankName}><SelectTrigger><SelectValue placeholder="Select Bank" /></SelectTrigger><SelectContent><SelectItem value="GTBank">GTBank</SelectItem><SelectItem value="First Bank">First Bank</SelectItem><SelectItem value="UBA">UBA</SelectItem><SelectItem value="Zenith Bank">Zenith Bank</SelectItem></SelectContent></Select></div>
+                <div><Label>Bank Name</Label><Select onValueChange={(value) => handleBankDetailsChange(value, 'bankName')} value={bankDetails.bankName}><SelectTrigger><SelectValue placeholder="Select Bank" /></SelectTrigger><SelectContent>
+  {NIGERIAN_BANKS.map(bank => (
+    <SelectItem key={bank} value={bank}>{bank}</SelectItem>
+  ))}
+</SelectContent></Select></div>
                 <div><Label>Country</Label><Select onValueChange={(value) => handleBankDetailsChange(value, 'country')} value={bankDetails.country}><SelectTrigger><SelectValue placeholder="Select Country" /></SelectTrigger><SelectContent><SelectItem value="NG">Nigeria</SelectItem><SelectItem value="US">United States</SelectItem></SelectContent></Select></div>
                 <Button onClick={handleSaveBankDetails} className="w-full bg-teal-600 hover:bg-teal-700" disabled={isSaving}>{isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : 'Save Bank Details'}</Button>
               </div>

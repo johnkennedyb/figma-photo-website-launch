@@ -37,7 +37,7 @@ const Profile: React.FC = () => {
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1">
               <p className="text-sm font-medium text-gray-500">Full Name</p>
-              <p>{user.name}</p>
+              <p>{user.firstName} {user.lastName}</p>
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium text-gray-500">Email Address</p>

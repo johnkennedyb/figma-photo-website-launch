@@ -11,12 +11,17 @@ const WalletSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-  bankDetails: {
-    bankName: { type: String, default: '' },
-    accountNumber: { type: String, default: '' },
-    accountName: { type: String, default: '' },
-    bvn: { type: String, default: '' },
+  currency: {
+    type: String,
+    enum: ['USD', 'NGN'],
+    default: 'USD',
+    required: true,
   },
+  transactions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Transaction'
+  }]
+
 });
 
 module.exports = mongoose.model('Wallet', WalletSchema);

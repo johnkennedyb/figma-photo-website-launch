@@ -1,5 +1,6 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Country, City } from 'country-state-city';
+import { ICountry, ICity } from 'country-state-city/lib/interface';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,21 +20,76 @@ const OnboardingStep: React.FC = () => {
     city: '',
     maritalStatus: '',
     nationality: '',
+    counsellingType: '',
+    otherCounsellingType: '',
+    language: '',
+    otherLanguage: '',
   });
+  const [countries, setCountries] = useState<ICountry[]>([]);
+  const [cities, setCities] = useState<ICity[]>([]);
   const currentStep = parseInt(step || '1');
 
-    const handleNext = async () => {
-    // Basic validation
-    if (!formData[fieldMapping[currentStep]]) {
+  useEffect(() => {
+    setCountries(Country.getAllCountries());
+  }, []);
+
+  useEffect(() => {
+    if (formData.country) {
+      const countryInfo = Country.getCountryByCode(formData.country);
+      if (countryInfo) {
+        setCities(City.getCitiesOfCountry(countryInfo.isoCode) || []);
+      }
+    } else {
+      setCities([]);
+    }
+  }, [formData.country]);
+
+  const handleNext = async () => {
+    // Age validation for step 1
+    if (currentStep === 1 && formData.dateOfBirth) {
+      const birthDate = new Date(formData.dateOfBirth);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+      }
+
+      if (age < 18) {
+        toast({
+          title: 'Age restriction',
+          description: 'You must be at least 18 years old to sign up.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    // Validation logic
+    const currentField = fieldMapping[currentStep];
+    let isValid = true;
+    let errorMessage = `Please fill in the ${stepConfigs[currentStep - 1].title.toLowerCase()} field.`
+
+    if (!formData[currentField]) {
+      isValid = false;
+    } else if (currentField === 'counsellingType' && formData.counsellingType === 'Other' && !formData.otherCounsellingType) {
+      isValid = false;
+      errorMessage = 'Please specify the type of counselling.';
+    } else if (currentField === 'language' && formData.language === 'Other' && !formData.otherLanguage) {
+      isValid = false;
+      errorMessage = 'Please specify your language.';
+    }
+
+    if (!isValid) {
       toast({
-        title: 'Field required',
-        description: `Please enter your ${stepConfigs[currentStep - 1].title.toLowerCase()}.`,
+        title: 'Field Required',
+        description: errorMessage,
         variant: 'destructive',
       });
       return;
     }
 
-    if (currentStep < 5) {
+    if (currentStep < 7) {
       navigate(`/onboarding/${currentStep + 1}`);
     } else {
       // Last step completed
@@ -47,11 +103,16 @@ const OnboardingStep: React.FC = () => {
           description: 'Your profile has been set up successfully',
         });
         navigate('/dashboard');
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(error);
+        let errorMessage = 'Failed to save onboarding data';
+        if (typeof error === 'object' && error !== null) {
+          const apiError = error as { response?: { data?: { msg?: string } } };
+          errorMessage = apiError.response?.data?.msg || errorMessage;
+        }
         toast({
           title: 'Error',
-          description: error.response?.data?.msg || 'Failed to save onboarding data',
+          description: errorMessage,
           variant: 'destructive',
         });
       }
@@ -72,6 +133,8 @@ const OnboardingStep: React.FC = () => {
     3: 'city',
     4: 'maritalStatus',
     5: 'nationality',
+    6: 'counsellingType',
+    7: 'language',
   };
 
   const stepConfigs = [
@@ -94,6 +157,14 @@ const OnboardingStep: React.FC = () => {
     {
       title: "Nationality",
       description: "Please fill the correct information"
+    },
+    {
+      title: "Type of counselling required",
+      description: "Please select the type of counselling you require."
+    },
+    {
+      title: "Languages spoken",
+      description: "Please select a language you are comfortable with."
     }
   ];
   
@@ -128,18 +199,32 @@ const OnboardingStep: React.FC = () => {
             />
           )}
           {currentStep === 2 && (
-            <Input
-              placeholder="Enter your country"
-              value={formData.country}
-              onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-            />
+            <Select onValueChange={(value) => setFormData({ ...formData, country: value, city: '' })} value={formData.country}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select your country" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {countries.map((country) => (
+                  <SelectItem key={country.isoCode} value={country.isoCode}>
+                    {country.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
           {currentStep === 3 && (
-            <Input
-              placeholder="Enter your city"
-              value={formData.city}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-            />
+            <Select onValueChange={(value) => setFormData({ ...formData, city: value })} value={formData.city} disabled={!formData.country || cities.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder={!formData.country ? "Select a country first" : cities.length === 0 ? "No cities available" : "Select your city"} />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {cities.map((city) => (
+                  <SelectItem key={city.name} value={city.name}>
+                    {city.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
           {currentStep === 4 && (
             <Select onValueChange={(value) => setFormData({ ...formData, maritalStatus: value })} value={formData.maritalStatus}>
@@ -155,11 +240,64 @@ const OnboardingStep: React.FC = () => {
             </Select>
           )}
           {currentStep === 5 && (
-            <Input
-              placeholder="Enter your nationality"
-              value={formData.nationality}
-              onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
-            />
+            <Select onValueChange={(value) => setFormData({ ...formData, nationality: value })} value={formData.nationality}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select your nationality" />
+              </SelectTrigger>
+              <SelectContent>
+                {countries.map((country) => (
+                  <SelectItem key={country.isoCode} value={country.name}>
+                    {country.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {currentStep === 6 && (
+            <>
+              <Select onValueChange={(value) => setFormData({ ...formData, counsellingType: value })} value={formData.counsellingType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type of counselling" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Marital">Marital</SelectItem>
+                  <SelectItem value="Pre-marital">Pre-marital</SelectItem>
+                  <SelectItem value="Mental Health Review">Mental Health Review</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              {formData.counsellingType === 'Other' && (
+                <Input
+                  placeholder="Please specify"
+                  value={formData.otherCounsellingType}
+                  onChange={(e) => setFormData({ ...formData, otherCounsellingType: e.target.value })}
+                  className="mt-4"
+                />
+              )}
+            </>
+          )}
+          {currentStep === 7 && (
+            <>
+              <Select onValueChange={(value) => setFormData({ ...formData, language: value })} value={formData.language}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select language" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Yoruba">Yoruba</SelectItem>
+                  <SelectItem value="Igbo">Igbo</SelectItem>
+                  <SelectItem value="Hausa">Hausa</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              {formData.language === 'Other' && (
+                <Input
+                  placeholder="Please specify"
+                  value={formData.otherLanguage}
+                  onChange={(e) => setFormData({ ...formData, otherLanguage: e.target.value })}
+                  className="mt-4"
+                />
+              )}
+            </>
           )}
         </div>
         
@@ -174,7 +312,7 @@ const OnboardingStep: React.FC = () => {
           <Button 
             onClick={handleNext}
           >
-            {currentStep === 5 ? 'Finish' : 'Next'}
+            {currentStep === 7 ? 'Finish' : 'Next'}
           </Button>
         </div>
       </div>

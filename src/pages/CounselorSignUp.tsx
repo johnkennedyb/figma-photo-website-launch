@@ -9,7 +9,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/context/AuthContext';
 
 const CounselorSignUp: React.FC = () => {
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -22,16 +23,20 @@ const CounselorSignUp: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await signup(name, email, password, 'counselor');
+      await signup(firstName, lastName, email, password, 'counselor');
       toast({
         title: 'Account Created',
         description: "Redirecting to onboarding...",
       });
       navigate('/counselor-onboarding/1');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      let errorMessage = 'An unexpected error occurred.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       toast({
         title: 'Sign Up Failed',
-        description: error.message || 'An unexpected error occurred.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -54,19 +59,35 @@ const CounselorSignUp: React.FC = () => {
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <label htmlFor="name" className="text-sm font-medium">
-            Full Name*
-          </label>
-          <Input
-            id="name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="h-12 bg-teal-50 border-teal-600"
-            placeholder="Enter your full name"
-            required
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label htmlFor="firstName" className="text-sm font-medium">
+              First Name*
+            </label>
+            <Input
+              id="firstName"
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="h-12 bg-teal-50 border-teal-600"
+              placeholder="Enter your first name"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="lastName" className="text-sm font-medium">
+              Last Name*
+            </label>
+            <Input
+              id="lastName"
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="h-12 bg-teal-50 border-teal-600"
+              placeholder="Enter your last name"
+              required
+            />
+          </div>
         </div>
         <div className="space-y-2">
           <label htmlFor="email" className="text-sm font-medium">

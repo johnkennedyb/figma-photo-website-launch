@@ -1,79 +1,69 @@
 import React, { useEffect, useState, useRef, useContext } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { toast, Toaster } from 'sonner';
+import { useToast } from '@/components/ui/use-toast';
 import CounselorSidebarLayout from '@/components/CounselorSidebarLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Send, Paperclip, Video, Phone, MoreHorizontal, ArrowLeft } from 'lucide-react';
+import { Send, Paperclip, MoreHorizontal, ArrowLeft, CalendarPlus, CreditCard, Video } from 'lucide-react';
 import WherebyVideoCall from '@/components/WherebyVideoCall';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import ScheduleSessionModal from '@/components/ScheduleSessionModal';
+import RequestPaymentModal from '@/components/RequestPaymentModal';
 import { SocketContext, SocketProvider } from '@/context/SocketContext';
-import axios from 'axios';
 
+// Type Definitions
 interface Message {
   _id: string;
-  sender: { _id: string; name: string };
-  receiver: { _id: string; name: string };
+  sender: { _id: string; firstName: string; lastName: string };
+  receiver: { _id: string; firstName: string; lastName: string };
   content: string;
   timestamp: string;
 }
 
 interface Client {
   _id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
 }
 
+// Main Chat Component Logic
 const CounselorChatContent: React.FC = () => {
+  // Hooks
   const { id: clientId } = useParams<{ id: string }>();
-  const { user: counselor, isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const { socket } = useContext(SocketContext);
   const navigate = useNavigate();
-
-  // State
-  const [newMessage, setNewMessage] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [client, setClient] = useState<Client | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Refs
+  const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Jitsi State
-    const [isVideoCallActive, setIsVideoCallActive] = useState(false);
+  // State
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [client, setClient] = useState<Client | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSchedulingModalOpen, setIsSchedulingModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [isVideoCallActive, setIsVideoCallActive] = useState(false);
   const [videoCallRoomUrl, setVideoCallRoomUrl] = useState('');
   const [incomingVideoCall, setIncomingVideoCall] = useState<{ roomUrl: string; callerName: string; } | null>(null);
 
-  // Scroll to bottom of messages
+  // Effect for scrolling to the latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Load chat data and set up socket listeners
-    useEffect(() => {
-    // Wait for the authentication status to be determined
-    if (loading) {
-      return;
-    }
-
-    // Redirect if not authenticated or user data is not available
-    if (!isAuthenticated || !counselor) {
-      toast.error('Authentication required. Redirecting to login.');
+  // Effect for initialization, data fetching, and socket handling
+  useEffect(() => {
+    if (loading) return;
+    if (!isAuthenticated || !user) {
       navigate('/counselor-login');
       return;
     }
-
-    // Ensure the user is a counselor
-    if (counselor.role !== 'counselor') {
-      toast.error('Access Denied. You do not have permission to view this page.');
-      navigate('/counselor-login');
-      return;
-    }
-    
-    // Ensure we have a client ID from the URL
-    if (!clientId) {
-      toast.error('No client specified.');
+    if (user.role !== 'counselor' || !clientId) {
       navigate('/counselor-dashboard/messages');
       return;
     }
@@ -89,7 +79,7 @@ const CounselorChatContent: React.FC = () => {
         setMessages(messagesRes.data);
       } catch (error) {
         console.error('Failed to load chat data:', error);
-        toast.error('Failed to load chat data. Please try again later.');
+        toast({ title: 'Error', description: 'Failed to load chat data.', variant: 'destructive' });
         navigate('/counselor-dashboard/messages');
       } finally {
         setIsLoading(false);
@@ -100,70 +90,91 @@ const CounselorChatContent: React.FC = () => {
 
     if (socket) {
       const handleReceiveMessage = (message: Message) => {
-        // Ensure the message is part of the current conversation
-        if (message.sender._id === clientId || (message.sender._id === counselor._id && message.receiver._id === clientId)) {
+        if (message.sender._id === clientId || message.receiver._id === clientId) {
           setMessages((prev) => [...prev, message]);
         }
       };
-
-      const handleIncomingVideoCall = (data: { roomUrl: string; callerName: string; }) => {
-        setIncomingVideoCall(data);
-        toast.info(`Incoming video call from ${data.callerName}`);
-      };
-
+      const handleIncomingVideoCall = (data: { roomUrl: string; callerName: string; }) => setIncomingVideoCall(data);
       const handleVideoCallEnded = () => {
         setIsVideoCallActive(false);
         setVideoCallRoomUrl('');
-        toast.info('Video call has ended.');
-      };
-
-      const handleMessageError = (error: { message: string }) => {
-        toast.error(`Failed to send message: ${error.message}`);
       };
 
       socket.on('receive-message', handleReceiveMessage);
       socket.on('incoming-video-call', handleIncomingVideoCall);
       socket.on('video-call-ended', handleVideoCallEnded);
-      socket.on('message-error', handleMessageError);
 
-      // Cleanup function
       return () => {
         socket.off('receive-message', handleReceiveMessage);
         socket.off('incoming-video-call', handleIncomingVideoCall);
         socket.off('video-call-ended', handleVideoCallEnded);
-        socket.off('message-error', handleMessageError);
       };
     }
-  }, [socket, clientId, counselor, isAuthenticated, navigate, loading]);
+  }, [socket, clientId, isAuthenticated, navigate, loading, user, toast]);
 
-  const handleSendMessage = () => {
-    if (newMessage.trim() && socket && counselor && clientId) {
-      const messageData = {
-        sender: counselor._id,
+  // Handlers
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !user || !clientId) return;
+
+    const content = newMessage.trim();
+    setNewMessage(''); // Optimistically clear the input
+
+    try {
+      // The backend will save the message and emit it back via WebSocket.
+      // The 'receive-message' listener will then update the state.
+      await api.post('/messages', {
         receiver: clientId,
-        content: newMessage,
-      };
-      socket.emit('send-message', messageData);
-      setNewMessage('');
+        content: content,
+      });
+    } catch (error: any) {
+      console.error('Failed to send message:', error);
+      setNewMessage(content); // Revert optimistic clear if sending fails
+      const errorMsg = error.response?.data?.msg || 'Could not send message. Please try again.';
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: errorMsg,
+      });
+    }
+  };
+
+  const handlePaymentSubmit = async (amount: number, currency: 'usd' | 'ngn') => {
+    if (!clientId || !user || !client?.email) {
+      toast({ title: 'Error', description: 'Client information is missing.', variant: 'destructive' });
+      return;
+    }
+    setIsSubmittingPayment(true);
+    const endpoint = currency === 'usd' ? '/stripe/create-checkout-session' : '/paystack/create-payment';
+    const payload = { counselorId: user._id, clientId, amount: Math.round(amount * 100), currency, email: client.email };
+    try {
+      const response = await api.post(endpoint, payload);
+      const { url } = response.data;
+      if (url) {
+        window.location.href = url;
+      } else {
+        toast({ title: 'Error', description: 'Could not get payment URL.', variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error('Payment request failed', error);
+      toast({ title: 'Error', description: 'Failed to create payment request.', variant: 'destructive' });
+    } finally {
+      setIsSubmittingPayment(false);
+      setIsPaymentModalOpen(false);
     }
   };
 
   const handleStartVideoCall = async () => {
-    if (!socket || !counselor || !clientId) return;
-
+    if (!socket || !user || !clientId) return;
     try {
-      const token = localStorage.getItem('token');
-      const res = await axios.post('/api/whereby/create-meeting', {}, {
-        headers: { 'x-auth-token': token }
-      });
+      const res = await api.post('/whereby/create-meeting');
       const { roomUrl } = res.data;
-
       setVideoCallRoomUrl(roomUrl);
       setIsVideoCallActive(true);
-
-      socket.emit('start-video-call', { to: clientId, roomUrl, callerName: counselor.name });
+      socket.emit('start-video-call', { to: clientId, roomUrl, callerName: `${user.firstName} ${user.lastName}` });
     } catch (error) {
       console.error('Error creating video call:', error);
+      toast({ title: 'Error', description: 'Failed to start video call.', variant: 'destructive' });
     }
   };
 
@@ -175,71 +186,53 @@ const CounselorChatContent: React.FC = () => {
     }
   };
 
-  const handleDeclineVideoCall = () => {
-    setIncomingVideoCall(null);
-  };
+  const handleDeclineVideoCall = () => setIncomingVideoCall(null);
 
   const handleVideoCallClose = () => {
-    if (socket && clientId) {
-      socket.emit('video-call-hang-up', { to: clientId });
-    }
+    if (socket && clientId) socket.emit('video-call-hang-up', { to: clientId });
     setIsVideoCallActive(false);
     setVideoCallRoomUrl('');
   };
-
-  const formatTimestamp = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  
+  const handleSessionScheduled = (session: any) => {
+    console.log('Session scheduled:', session);
+    toast({ title: 'Success', description: 'Session has been scheduled.' });
   };
 
-  if (isLoading) {
-    return <CounselorSidebarLayout activePath="/counselor/chat"><div className="flex items-center justify-center h-full">Loading chat...</div></CounselorSidebarLayout>;
-  }
+  const formatTimestamp = (dateString: string) => new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  if (!counselor || !client) {
-    return <CounselorSidebarLayout activePath="/counselor/chat"><div className="flex items-center justify-center h-full">Could not load chat details.</div></CounselorSidebarLayout>;
-  }
+  // Conditional Rendering for Loading/Error States
+  if (loading || isLoading) return <CounselorSidebarLayout activePath="/counselor/chat"><div className="flex items-center justify-center h-full">Loading chat...</div></CounselorSidebarLayout>;
+  if (!user || !client) return <CounselorSidebarLayout activePath="/counselor/chat"><div className="flex items-center justify-center h-full">Could not load chat details.</div></CounselorSidebarLayout>;
 
+  // Main Render
   return (
     <>
       <CounselorSidebarLayout activePath="/counselor/chat">
-        <Toaster richColors />
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full bg-transparent">
           <header className="flex items-center p-4 border-b">
-            <Link to="/counselor/chats">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft />
-              </Button>
+            <Link to="/counselor-dashboard/messages">
+              <Button variant="ghost" size="icon"><ArrowLeft /></Button>
             </Link>
             <div className="ml-4">
-              <h2 className="text-lg font-bold">{client.name}</h2>
+              <h2 className="text-lg font-bold">{client.firstName} {client.lastName}</h2>
               <p className="text-sm text-gray-500">Online</p>
             </div>
             <div className="ml-auto flex items-center space-x-2">
-                            <Button variant="ghost" size="icon" onClick={handleStartVideoCall}>
-                <Video />
-              </Button>
-              <Button variant="ghost" size="icon">
-                <Phone />
-              </Button>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal />
-              </Button>
+              <Button variant="ghost" size="icon" onClick={handleStartVideoCall} title="Start Video Call"><Video className="h-6 w-6" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => setIsSchedulingModalOpen(true)} title="Schedule Session"><CalendarPlus className="h-6 w-6" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => setIsPaymentModalOpen(true)} title="Request Payment"><CreditCard className="h-6 w-6" /></Button>
+              <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
             </div>
           </header>
 
           <main className="flex-1 overflow-y-auto p-4">
             <div className="space-y-4">
               {messages.map((message) => (
-                <div
-                  key={message._id}
-                  className={`flex ${message.sender._id === counselor._id ? 'justify-end' : 'justify-start'}`}
-                >
-                  <Card className={`p-3 max-w-xs lg:max-w-md ${message.sender._id === counselor._id ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                <div key={message._id} className={`flex ${message.sender._id === user._id ? 'justify-end' : 'justify-start'}`}>
+                  <Card className={`p-3 max-w-xs lg:max-w-md ${message.sender._id === user._id ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                     <p>{message.content}</p>
-                    <span className="text-xs text-right block mt-1 opacity-75">
-                      {formatTimestamp(message.timestamp)}
-                    </span>
+                    <span className="text-xs text-right block mt-1 opacity-75">{formatTimestamp(message.timestamp)}</span>
                   </Card>
                 </div>
               ))}
@@ -247,54 +240,42 @@ const CounselorChatContent: React.FC = () => {
             </div>
           </main>
 
-          <footer className="p-4 border-t">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSendMessage();
-              }}
-              className="flex items-center space-x-2"
-            >
-              <Button variant="ghost" size="icon">
-                <Paperclip />
-              </Button>
-              <Input
-                type="text"
-                placeholder="Type a message..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1"
-              />
-              <Button type="submit" size="icon">
-                <Send />
-              </Button>
+          <footer className="p-4 border-t bg-gray-50">
+            <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
+              <Button variant="ghost" size="icon"><Paperclip /></Button>
+              <Input type="text" placeholder="Type a message..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="flex-1" />
+              <Button type="submit" size="icon"><Send /></Button>
             </form>
           </footer>
         </div>
       </CounselorSidebarLayout>
 
-            {isVideoCallActive && (
-        <WherebyVideoCall
-          roomUrl={videoCallRoomUrl}
-          onClose={handleVideoCallClose}
-        />
-      )}
+      {/* Modals and Overlays */}
+      {isVideoCallActive && <WherebyVideoCall roomUrl={videoCallRoomUrl} onClose={handleVideoCallClose} />}
 
-            {incomingVideoCall && !isVideoCallActive && (
+      {incomingVideoCall && !isVideoCallActive && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="p-6 text-center">
-                        <h3 className="text-lg font-semibold">Incoming Video Call from {incomingVideoCall.callerName}</h3>
+            <h3 className="text-lg font-semibold">Incoming Video Call from {incomingVideoCall.callerName}</h3>
             <div className="mt-4 flex gap-4">
-                            <Button variant="outline" onClick={handleDeclineVideoCall}>Decline</Button>
-                            <Button className="bg-green-500 hover:bg-green-600" onClick={handleAcceptVideoCall}>Accept</Button>
+              <Button variant="outline" onClick={handleDeclineVideoCall}>Decline</Button>
+              <Button className="bg-transparent hover:bg-green-600" onClick={handleAcceptVideoCall}>Accept</Button>
             </div>
           </Card>
         </div>
+      )}
+
+      {clientId && (
+        <>
+          <ScheduleSessionModal isOpen={isSchedulingModalOpen} onClose={() => setIsSchedulingModalOpen(false)} client={client} counselor={user} onSessionScheduled={handleSessionScheduled} />
+          <RequestPaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} onSubmit={handlePaymentSubmit} isSubmitting={isSubmittingPayment} />
+        </>
       )}
     </>
   );
 };
 
+// Component Wrapper with Socket Provider
 const CounselorChat: React.FC = () => (
   <SocketProvider>
     <CounselorChatContent />

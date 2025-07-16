@@ -6,24 +6,22 @@ import { Loader2 } from 'lucide-react';
 import CounselorSidebarLayout from '@/components/CounselorSidebarLayout';
 import { Button } from '@/components/ui/button';
 import { Search, Bell } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
-
-interface User {
-  name: string;
-}
 
 interface Session {
   _id: string;
-  user: { _id: string; name: string };
+  client: { _id: string; firstName: string; lastName: string; };
   date: string;
   status: string;
 }
 
 interface Earnings {
-  total: number;
-  year: number;
-  month: number;
+  today: number;
   week: number;
+  month: number;
+  year: number;
+  total: number;
 }
 
 const CounselorDashboardContent: React.FC = () => {
@@ -32,6 +30,7 @@ const CounselorDashboardContent: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [earnings, setEarnings] = useState<Earnings | null>(null);
   const [balance, setBalance] = useState<number>(0);
+  const [earningsPeriod, setEarningsPeriod] = useState('week');
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -48,14 +47,15 @@ const CounselorDashboardContent: React.FC = () => {
       try {
         const [sessionsRes, walletRes] = await Promise.allSettled([
           api.get('/sessions/list-for-counselor'),
-          api.get('/wallet/counselor'),
+          api.get(`/wallet/counselor?period=${earningsPeriod}`),
         ]);
 
         if (sessionsRes.status === 'fulfilled') {
           setSessions(sessionsRes.value.data || []);
         } else {
-          console.error('Failed to fetch sessions:', sessionsRes.reason.response?.data || sessionsRes.reason);
-          if (sessionsRes.reason.response?.status !== 404) {
+          const reason = sessionsRes.reason as { response?: { data?: { msg?: string }, status?: number } };
+          console.error('Failed to fetch sessions:', reason.response?.data || reason);
+          if (reason.response?.status !== 404) {
             setFetchError(prev => (prev ? `${prev} ` : '') + 'Failed to load session data.');
           }
         }
@@ -64,12 +64,13 @@ const CounselorDashboardContent: React.FC = () => {
           setEarnings(walletRes.value.data.earnings);
           setBalance(walletRes.value.data.balance);
         } else {
-          console.error('Failed to fetch wallet data:', walletRes.reason.response?.data || walletRes.reason);
-          if (walletRes.reason.response?.status !== 404) {
+          const reason = walletRes.reason as { response?: { data?: { msg?: string }, status?: number } };
+          console.error('Failed to fetch wallet data:', reason.response?.data || reason);
+          if (reason.response?.status !== 404) {
             setFetchError(prev => (prev ? `${prev} ` : '') + 'Failed to load wallet data.');
           }
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('An unexpected error occurred while fetching dashboard data:', error);
         setFetchError('An unexpected error occurred. Please try again later.');
       } finally {
@@ -78,7 +79,7 @@ const CounselorDashboardContent: React.FC = () => {
     };
 
     fetchData();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, earningsPeriod]);
 
   useEffect(() => {
     if (socket) {
@@ -95,7 +96,7 @@ const CounselorDashboardContent: React.FC = () => {
           const walletRes = await api.get('/wallet/counselor');
           setEarnings(walletRes.data.earnings);
           setBalance(walletRes.data.balance);
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('Failed to fetch earnings', error);
         }
       };
@@ -112,11 +113,11 @@ const CounselorDashboardContent: React.FC = () => {
     }
   }, [socket]);
 
-  const upcomingSessions = sessions.filter(s => s && new Date(s.date) > new Date() && s.status === 'confirmed');
+  const upcomingSessions = sessions.filter(s => s && new Date(s.date) > new Date() && ['confirmed','paid','pending_payment','upcoming'].includes(s.status));
   upcomingSessions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const nextSession = upcomingSessions[0];
 
-  const totalClients = new Set(sessions.filter(s => s && s.user).map(s => s.user._id)).size;
+  const totalClients = new Set(sessions.filter(s => s && s.client).map(s => s.client._id)).size;
 
   if (authLoading) {
     return (
@@ -140,15 +141,13 @@ const CounselorDashboardContent: React.FC = () => {
 
   return (
     <div>
-      <CounselorSidebarLayout activePath="/counselor-dashboard">
+      <CounselorSidebarLayout activePath="/counselor/dashboard">
       <div className="min-h-screen p-6">
 
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-semibold text-white">Welcome {user.name}! 👋</h1>
+          <h1 className="text-2xl font-semibold text-white">Welcome {user.firstName} {user.lastName}! 👋</h1>
           <div className="flex items-center gap-4">
-            <Button asChild variant="outline" size="sm" className="bg-white/20 text-white border-white/30 hover:bg-white/30">
-                <Link to="/counselor/profile/edit">Edit Profile</Link>
-            </Button>
+
             <Button variant="outline" size="icon" className="bg-white/20 text-white border-white/30 hover:bg-white/30">
                 <Search size={16} />
             </Button>
@@ -206,27 +205,33 @@ const CounselorDashboardContent: React.FC = () => {
           
           {/* Earnings Card */}
           <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-sm p-6">
-            <div className="flex items-center mb-4">
-              <span className="text-xl mr-2">💰</span>
-              <h3 className="text-lg font-medium">Earnings</h3>
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center">
+                <span className="text-xl mr-2">💰</span>
+                <h3 className="text-lg font-medium">Earnings</h3>
+              </div>
+              <Select value={earningsPeriod} onValueChange={setEarningsPeriod}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select period" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">This Week</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                  <SelectItem value="year">This Year</SelectItem>
+                  <SelectItem value="total">Total</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="space-y-4">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Total amount earned so far</span>
+            <div className="text-center py-8">
+              <div className="text-4xl font-bold text-teal-600 mb-2">
+                ₦{earnings ? (earnings[earningsPeriod as keyof Earnings] || 0).toLocaleString() : 0}
+              </div>
+              <div className="text-gray-500 capitalize">{earningsPeriod} Earnings</div>
+            </div>
+            <div className="border-t pt-4 flex justify-between">
+                <span className="text-gray-600">Available for Payout</span>
                 <span className="font-semibold">₦{balance.toLocaleString() || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">This Year</span>
-                <span className="font-semibold">₦{earnings?.year.toLocaleString() || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">This Month</span>
-                <span className="font-semibold">₦{earnings?.month.toLocaleString() || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">This Week</span>
-                <span className="font-semibold">₦{earnings?.week.toLocaleString() || 0}</span>
-              </div>
             </div>
           </div>
         </div>

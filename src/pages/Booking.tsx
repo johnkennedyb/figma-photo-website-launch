@@ -1,110 +1,159 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { useParams, useNavigate } from 'react-router-dom';
 import SidebarLayout from '@/components/SidebarLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
+import { Loader2 } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 
-// IMPORTANT: Make sure to set VITE_STRIPE_PUBLISHABLE_KEY in your .env file
 const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
 if (!STRIPE_PUBLISHABLE_KEY) {
   throw new Error("Missing Stripe publishable key. Please set VITE_STRIPE_PUBLISHABLE_KEY in your .env file.");
-} 
+}
+
+interface Counselor {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  availability?: string[];
+}
 
 const Booking: React.FC = () => {
   const { counselorId } = useParams<{ counselorId: string }>();
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
+  const [counselor, setCounselor] = useState<Counselor | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState('');
   const [currency, setCurrency] = useState('usd');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isBooking, setIsBooking] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    const fetchCounselor = async () => {
+      try {
+        const response = await api.get(`/counselors/${counselorId}`);
+        console.log('Counselor data received:', response.data);
+        setCounselor(response.data);
+      } catch (error) {
+        toast({ title: 'Error', description: 'Failed to fetch counselor details.', variant: 'destructive' });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchCounselor();
+  }, [counselorId, toast]);
 
+  const availableSlotsByDate = useMemo(() => {
+    if (!counselor?.availability) return {};
+    return counselor.availability.reduce((acc, slot) => {
+      try {
+        const date = format(parseISO(slot), 'yyyy-MM-dd');
+        if (!acc[date]) acc[date] = [];
+        acc[date].push(slot);
+      } catch (error) {
+        console.error(`Invalid date format for slot: ${slot}`);
+      }
+      return acc;
+    }, {} as Record<string, string[]>);
+  }, [counselor?.availability]);
+
+  const handleSubmit = async () => {
     if (!isAuthenticated) {
       toast({ title: 'Authentication Error', description: 'Please log in to book a session.', variant: 'destructive' });
       navigate('/login');
       return;
     }
+    if (!selectedSlot) {
+      toast({ title: 'Selection Error', description: 'Please select an available time slot.', variant: 'destructive' });
+      return;
+    }
 
-    setIsLoading(true);
-
+    setIsBooking(true);
     try {
       const response = await api.post('/payment/create-checkout-session', {
         counselorId,
-        date,
-        time,
+        sessionDate: selectedSlot, // Send the full ISO string
         currency,
       });
 
       const sessionData = response.data;
-
       if (sessionData.provider === 'stripe') {
         const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
         if (stripe) {
-          const { error } = await stripe.redirectToCheckout({ sessionId: sessionData.id });
-          if (error) {
-            toast({ title: 'Stripe Error', description: error.message || 'Redirect failed', variant: 'destructive' });
-          }
+          stripe.redirectToCheckout({ sessionId: sessionData.id });
         }
       } else if (sessionData.provider === 'paystack') {
         window.location.href = sessionData.authorization_url;
       }
-
     } catch (error: any) {
-      console.error('Booking submission failed:', error.response?.data || error);
-      toast({
-        title: 'Booking Failed',
-        description: error.response?.data?.msg || (error as Error).message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Booking Failed', description: error.response?.data?.msg || 'An error occurred.', variant: 'destructive' });
     } finally {
-      setIsLoading(false);
+      setIsBooking(false);
     }
   };
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
+
+  if (!counselor) {
+    return <div className="text-center p-8">Counselor not found.</div>;
+  }
 
   return (
     <SidebarLayout activePath="/counselors">
       <div className="p-6">
-        <Card className="max-w-2xl mx-auto">
+        <Card className="max-w-3xl mx-auto">
           <CardHeader>
-            <CardTitle>Book a Session</CardTitle>
+            <CardTitle>Book a Session with {counselor.firstName} {counselor.lastName}</CardTitle>
+            <CardDescription>Select an available time slot and proceed to payment.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label htmlFor="date" className="text-sm font-medium">Date</label>
-                <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="time" className="text-sm font-medium">Time</label>
-                <Input id="time" type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="currency" className="text-sm font-medium">Currency</label>
-                <Select onValueChange={setCurrency} defaultValue={currency}>
-                  <SelectTrigger id="currency">
-                    <SelectValue placeholder="Select currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="usd">USD ($)</SelectItem>
-                    <SelectItem value="ngn">NGN (₦)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Processing...' : 'Proceed to Payment'}
-              </Button>
-            </form>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="font-semibold">Available Slots</h3>
+              {Object.keys(availableSlotsByDate).length > 0 ? (
+                Object.entries(availableSlotsByDate).map(([date, slots]) => (
+                  <div key={date}>
+                    <h4 className="font-medium mb-2">{format(parseISO(`${date}T00:00:00`), 'EEEE, MMMM d')}</h4>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {slots.map(slot => (
+                        <Button
+                          key={slot}
+                          variant={selectedSlot === slot ? 'default' : 'outline'}
+                          onClick={() => setSelectedSlot(slot)}
+                        >
+                          {format(parseISO(slot), 'h:mm a')}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500">This counselor has not set their availability yet.</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="currency" className="text-sm font-medium">Payment Currency</label>
+              <Select onValueChange={setCurrency} defaultValue={currency}>
+                <SelectTrigger id="currency" className="w-[180px]">
+                  <SelectValue placeholder="Select currency" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="usd">USD ($)</SelectItem>
+                  <SelectItem value="ngn">NGN (₦)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleSubmit} className="w-full" disabled={isBooking || !selectedSlot}>
+              {isBooking ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</> : 'Proceed to Payment'}
+            </Button>
           </CardContent>
         </Card>
       </div>

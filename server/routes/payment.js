@@ -8,6 +8,7 @@ const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Session = require('../models/Session');
 const Wallet = require('../models/Wallet');
+const Request = require('../models/Request');
 const Withdrawal = require('../models/Withdrawal');
 const { createVideoCall } = require('../helpers/videoCallHelper');
 
@@ -40,7 +41,8 @@ router.post('/create-checkout-session', auth, async (req, res) => {
       return res.status(400).json({ msg: 'Unsupported currency' });
     }
 
-    const sessionDateTime = new Date(`${date}T${time}`);
+    // Use the current date and time as a fallback if not provided
+    const sessionDateTime = (date && time) ? new Date(`${date}T${time}`) : new Date();
 
     const newSession = new Session({
       client: clientId,
@@ -80,7 +82,7 @@ router.post('/create-checkout-session', auth, async (req, res) => {
       newSession.stripeCheckoutSessionId = stripeSession.id;
       await newSession.save();
       
-      res.json({ provider: 'stripe', id: stripeSession.id });
+      res.json({ provider: 'stripe', id: stripeSession.id, url: stripeSession.url });
 
     } else if (currency === 'ngn') {
       const reference = newSession._id.toString();
@@ -93,14 +95,14 @@ router.post('/create-checkout-session', auth, async (req, res) => {
         currency: 'NGN',
         reference: reference,
         metadata: { internalSessionId: newSession._id.toString() },
-        callback_url: `${process.env.CLIENT_URL}/booking/success?session_id=${newSession._id}`,
+        callback_url: `${process.env.CLIENT_URL}/payment/verify?provider=paystack&counselor_id=${counselorId}&session_id=${reference}`,
       }, {
         headers: {
           Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
         }
       });
 
-      res.json({ provider: 'paystack', ...paystackResponse.data.data });
+      res.json({ provider: 'paystack', ...paystackResponse.data.data, url: paystackResponse.data.data.authorization_url });
     }
 
   } catch (err) {
@@ -156,6 +158,36 @@ router.post('/stripe/webhook', express.raw({ type: 'application/json' }), async 
       }
       
       await session.save();
+
+      // After successful payment, create a connection request
+      try {
+        const existingRequest = await Request.findOne({
+          client: session.client,
+          counselor: session.counselor,
+          status: { $in: ['pending', 'accepted'] },
+        });
+
+        if (!existingRequest) {
+          const newRequest = new Request({
+            client: session.client,
+            counselor: session.counselor,
+          });
+          await newRequest.save();
+          console.log(`[Stripe Webhook] Created connection request ${newRequest._id}`);
+
+          // Notify counselor about the new request
+          const io = req.io;
+          const userSocketMap = req.userSocketMap;
+          const counselorSocketId = userSocketMap[session.counselor.toString()];
+          if (counselorSocketId) {
+            io.to(counselorSocketId).emit('new-request', newRequest);
+          }
+        } else {
+          console.log(`[Stripe Webhook] Request already exists for client ${session.client} and counselor ${session.counselor}`);
+        }
+      } catch (requestError) {
+        console.error(`[Stripe Webhook] Failed to create connection request for session ${session._id}:`, requestError.message);
+      }
 
       // Add to counselor's wallet
       const platformFee = 0.1; // 10% platform fee
@@ -371,6 +403,147 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
   }
 
   res.json({ received: true });
+});
+
+
+// @route   POST api/payment/verify-payment
+// @desc    Verify a Stripe checkout session payment status
+// @access  Private
+router.post('/verify-payment', auth, async (req, res) => {
+  const { sessionId } = req.body;
+
+  if (!sessionId) {
+    return res.status(400).json({ msg: 'Session ID is required' });
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    // If payment is successful, ensure a session exists and is marked as paid
+    if (session.payment_status === 'paid') {
+      let counselorId = session.metadata?.counselorId;
+      let clientId = session.metadata?.clientId;
+      let internalSessionId = session.metadata?.internalSessionId;
+      if (!counselorId || !clientId) {
+          if (internalSessionId) {
+            const storedSession = await Session.findById(internalSessionId).populate('counselor client');
+            if (storedSession) {
+              counselorId = storedSession.counselor._id;
+              clientId    = storedSession.client._id;
+              if (storedSession.status !== 'paid') {
+                storedSession.status = 'paid';
+                await storedSession.save();
+              }
+            }
+          }
+        }
+        if (counselorId && clientId) {
+        try {
+          let existingSession = await Session.findOne({ client: clientId, counselor: counselorId, status: { $in: ['pending', 'pending_payment'] } });
+          if (!existingSession) {
+            existingSession = new Session({
+              client: clientId,
+              counselor: counselorId,
+              status: 'paid',
+              price: session.amount_total / 100, // amount_total is in cents
+              currency: session.currency || 'usd',
+              date: new Date(),
+            });
+          } else {
+            existingSession.status = 'paid';
+          }
+          await existingSession.save();
+
+          // Credit counselor wallet and create transaction record
+          const platformFee = 0.1;
+          const amountEarned = (session.amount_total / 100) * (1 - platformFee);
+          const wallet = await Wallet.findOneAndUpdate(
+            { user: counselorId },
+            { $inc: { balance: amountEarned } },
+            { new: true, upsert: true }
+          );
+          const Transaction = require('../models/Transaction');
+          const newTx = new Transaction({
+            wallet: wallet._id,
+            type: 'credit',
+            amount: amountEarned,
+            description: 'Session payment',
+            status: 'completed',
+          });
+          await newTx.save();
+          wallet.transactions.push(newTx._id);
+          await wallet.save();
+        } catch (dbErr) {
+          console.error('Error ensuring session payment record:', dbErr);
+        }
+      }
+    }
+
+    res.json({ payment_status: session.payment_status });
+  } catch (err) {
+    console.error('Error verifying Stripe session:', err.message);
+    res.status(500).json({ msg: 'Server Error', error: err.message });
+  }
+});
+
+
+// @route   POST api/payment/verify-paystack
+// @desc    Verify a Paystack transaction status
+// also credit counselor wallet
+// @access  Private
+router.post('/verify-paystack', auth, async (req, res) => {
+  const { reference } = req.body;
+
+  if (!reference) {
+    return res.status(400).json({ msg: 'Paystack reference is required' });
+  }
+
+  try {
+    const response = await axios.get(`https://api.paystack.co/transaction/verify/${reference}`, {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        }
+    });
+
+    // If successful, update session and wallet
+    if (response.data.data.status === 'success') {
+      const metadata = response.data.data.metadata || {};
+      const internalSessionId = metadata.internalSessionId;
+      if (internalSessionId) {
+        const paidSession = await Session.findById(internalSessionId);
+        if (paidSession && paidSession.status !== 'paid') {
+          paidSession.status = 'paid';
+          await paidSession.save();
+        }
+        const counselorId = paidSession?.counselor;
+        if (counselorId) {
+          const platformFee = 0.1;
+          const amountEarned = (response.data.data.amount / 100) * (1 - platformFee); // amount in Kobo converted to NGN
+          const wallet = await Wallet.findOneAndUpdate(
+            { user: counselorId },
+            { $inc: { balance: amountEarned } },
+            { new: true, upsert: true }
+          );
+          const Transaction = require('../models/Transaction');
+          const newTx = new Transaction({
+            wallet: wallet._id,
+            type: 'credit',
+            amount: amountEarned,
+            description: 'Session payment',
+            status: 'completed',
+          });
+          await newTx.save();
+          wallet.transactions.push(newTx._id);
+          await wallet.save();
+        }
+      }
+    }
+
+    res.json({ payment_status: response.data.data.status }); // e.g., 'success', 'failed'
+
+  } catch (err) {
+    console.error('Error verifying Paystack transaction:', err.message);
+    res.status(500).json({ msg: 'Server Error', error: err.message });
+  }
 });
 
 module.exports = router;

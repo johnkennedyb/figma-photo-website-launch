@@ -46,8 +46,13 @@ const AdminTransactionList: React.FC = () => {
             headers: { 'x-auth-token': token },
           });
           setTransactions(response.data);
-        } catch (err: any) {
-          setError(err.response?.data?.msg || 'Failed to fetch transactions.');
+        } catch (err: unknown) {
+          let errorMessage = 'Failed to fetch transactions.';
+          if (typeof err === 'object' && err !== null) {
+            const apiError = err as { response?: { data?: { msg?: string } } };
+            errorMessage = apiError.response?.data?.msg || 'Failed to fetch transactions.';
+          }
+          setError(errorMessage);
         } finally {
           setLoading(false);
         }

@@ -8,6 +8,8 @@ const admin = require('../middleware/admin');
 const User = require('../models/User');
 const Complaint = require('../models/Complaint');
 const Session = require('../models/Session');
+const Setting = require('../models/Setting');
+const sendEmail = require('../utils/sendEmail');
 
 // @route   POST api/admin/login
 // @desc    Authenticate admin & get token
@@ -73,7 +75,9 @@ router.get('/dashboard-overview', [auth, admin], async (req, res) => {
   try {
     // 1. User Stats
     const totalClients = await User.countDocuments({ role: 'client' });
+    const activeClients = await User.countDocuments({ role: 'client', isSuspended: false });
     const totalCounselors = await User.countDocuments({ role: 'counselor' });
+    const activeCounselors = await User.countDocuments({ role: 'counselor', isSuspended: false });
 
     // 2. Session Statistics
     const sessionStats = await Session.aggregate([
@@ -83,6 +87,12 @@ router.get('/dashboard-overview', [auth, admin], async (req, res) => {
     const completedCount = sessionStats.find(s => s._id === 'completed')?.count || 0;
     const ongoingCount = (sessionStats.find(s => s._id === 'paid')?.count || 0) + (sessionStats.find(s => s._id === 'upcoming')?.count || 0);
     const canceledCount = sessionStats.find(s => s._id === 'canceled')?.count || 0;
+
+    const avgDurationResult = await Session.aggregate([
+      { $match: { status: 'completed' } },
+      { $group: { _id: null, avgDuration: { $avg: '$duration' } } },
+    ]);
+    const averageSessionDuration = avgDurationResult[0]?.avgDuration || 0;
 
     // 3. Payment & Revenue Reports
     const revenueReport = await Session.aggregate([
@@ -114,7 +124,7 @@ router.get('/dashboard-overview', [auth, admin], async (req, res) => {
             $project: {
                 _id: 0,
                 counselorId: '$_id',
-                name: '$counselorDetails.name',
+                name: { $concat: ['$counselorDetails.firstName', ' ', '$counselorDetails.lastName'] },
                 sessionCount: '$sessionCount'
             }
         }
@@ -126,12 +136,17 @@ router.get('/dashboard-overview', [auth, admin], async (req, res) => {
     const overview = {
       userStats: {
         totalClients,
+        activeClients,
+        inactiveClients: totalClients - activeClients,
         totalCounselors,
+        activeCounselors,
+        inactiveCounselors: totalCounselors - activeCounselors,
       },
       sessionStats: {
         completed: completedCount,
         ongoing: ongoingCount,
         canceled: canceledCount,
+        averageDuration: averageSessionDuration,
       },
       revenueReport: totalRevenue,
       userEngagement: {
@@ -150,17 +165,29 @@ router.get('/dashboard-overview', [auth, admin], async (req, res) => {
 });
 
 // @route   GET api/admin/users
-// @desc    Get all users, with optional filtering by role
+// @desc    Get all users, with optional filtering by role, country, activity, subscriptionStatus, and reported
 // @access  Private, Admin
 router.get('/users', [auth, admin], async (req, res) => {
   try {
-    const { role } = req.query;
+    const { role, country, activity, subscriptionStatus, reported } = req.query;
     const filter = {};
-    if (role) {
-      filter.role = role;
+    if (role) filter.role = role;
+    if (country) filter.country = country;
+    if (subscriptionStatus) filter.subscriptionStatus = subscriptionStatus;
+    if (activity) {
+      // Example: filter by last login or session count, adjust as needed
+      // For now, skip unless you have activity tracking fields
     }
 
-    const users = await User.find(filter).select('-password');
+    let users = await User.find(filter).select('-password');
+
+    // If reported=true, filter users with complaints
+    if (reported === 'true') {
+      const complaints = await Complaint.find({ status: 'pending' });
+      const reportedUserIds = complaints.map(c => c.reportedUser); // adjust field as needed
+      users = users.filter(u => reportedUserIds.some(id => id.equals(u._id)));
+    }
+
     res.json(users);
   } catch (err) {
     console.error(err.message);
@@ -245,8 +272,8 @@ router.get('/transactions', [auth, admin], async (req, res) => {
     const transactions = await Session.find({
       status: { $in: ['paid', 'completed'] }
     })
-      .populate('client', 'name email')
-      .populate('counselor', 'name email')
+      .populate('client', 'firstName lastName email')
+      .populate('counselor', 'firstName lastName email')
       .sort({ date: -1 });
     res.json(transactions);
   } catch (err) {
@@ -301,6 +328,33 @@ router.put('/users/:id/verify', [auth, admin], async (req, res) => {
   }
 });
 
+// @route   PUT api/admin/counselors/:id/rate
+// @desc    Update counselor session rates
+// @access  Private, Admin
+router.put('/counselors/:id/rate', [auth, admin], async (req, res) => {
+  try {
+    const { sessionRate, ngnSessionRate } = req.body;
+    if (sessionRate == null && ngnSessionRate == null) {
+      return res.status(400).json({ msg: 'Provide at least one rate (sessionRate or ngnSessionRate).' });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ msg: 'Counselor not found' });
+    if (user.role !== 'counselor') {
+      return res.status(400).json({ msg: 'User is not a counselor' });
+    }
+
+    if (sessionRate != null) user.sessionRate = Number(sessionRate);
+    if (ngnSessionRate != null) user.ngnSessionRate = Number(ngnSessionRate);
+
+    await user.save();
+    res.json({ msg: 'Rates updated', counselor: user });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
 // @route   PUT api/admin/users/:id/suspend
 // @desc    Suspend or un-suspend a user
 // @access  Private, Admin
@@ -311,9 +365,44 @@ router.put('/users/:id/suspend', [auth, admin], async (req, res) => {
       return res.status(404).json({ msg: 'User not found' });
     }
 
-    user.isSuspended = !user.isSuspended; // Toggle suspension status
-    await user.save();
-    res.json(user);
+    // Use findByIdAndUpdate to avoid validation issues on save for older documents
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isSuspended: !user.isSuspended } },
+      { new: true }
+    );
+
+    res.json(updatedUser);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   GET api/admin/counselors
+// @desc    Get all counselors with optional filtering
+// @access  Private, Admin
+router.get('/counselors', [auth, admin], async (req, res) => {
+  try {
+    const { location, specialization, experience } = req.query;
+    const filter = { role: 'counselor' };
+
+    if (location) {
+      filter.country = location;
+    }
+    if (specialization) {
+      // Assuming specialization is a comma-separated string
+      filter.specialization = { $in: specialization.split(',') };
+    }
+    if (experience) {
+      // Assuming experience is stored in years
+      filter.yearsOfExperience = { $gte: parseInt(experience, 10) };
+    }
+
+    const counselors = await User.find(filter)
+      .select('-password');
+
+    res.json(counselors);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -360,6 +449,251 @@ router.put('/complaints/:id/status', [auth, admin], async (req, res) => {
       .populate('reportedUser', 'name email');
 
     res.json(populatedComplaint);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/admin/counselors/:id/visibility
+// @desc    Toggle counselor visibility on the platform
+// @access  Private, Admin
+router.put('/counselors/:id/visibility', [auth, admin], async (req, res) => {
+  try {
+    const counselor = await User.findById(req.params.id);
+    if (!counselor || counselor.role !== 'counselor') {
+      return res.status(404).json({ msg: 'Counselor not found' });
+    }
+
+    counselor.isVisible = !counselor.isVisible;
+    await counselor.save();
+
+    res.json(counselor);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/admin/sessions/:id/override-match
+// @desc    Override a client-counselor match by re-assigning the counselor
+// @access  Private, Admin
+router.put('/sessions/:id/override-match', [auth, admin], async (req, res) => {
+  const { counselorId } = req.body;
+
+  if (!counselorId) {
+    return res.status(400).json({ msg: 'New counselor ID is required.' });
+  }
+
+  try {
+    const session = await Session.findById(req.params.id);
+    if (!session) {
+      return res.status(404).json({ msg: 'Session not found.' });
+    }
+
+    const newCounselor = await User.findById(counselorId);
+    if (!newCounselor || newCounselor.role !== 'counselor') {
+      return res.status(404).json({ msg: 'The provided ID does not belong to a valid counselor.' });
+    }
+
+    session.counselor = newCounselor._id;
+    await session.save();
+
+    const populatedSession = await Session.findById(session._id)
+      .populate('client', 'name email')
+      .populate('counselor', 'name email');
+
+    res.json(populatedSession);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   GET api/admin/counselors
+// @desc    Get all counselors with optional filters
+// @access  Private, Admin
+router.get('/counselors', [auth, admin], async (req, res) => {
+  try {
+    const { specialty, country, experience, pending } = req.query;
+    const filter = { role: 'counselor' };
+    if (specialty) filter.specialty = specialty;
+    if (country) filter.country = country;
+    if (experience) {
+      // Example: filter by yearsOfExperience range
+      const [min, max] = experience.split('-');
+      if (max) {
+        filter.yearsOfExperience = { $gte: Number(min), $lte: Number(max) };
+      } else if (min.endsWith('+')) {
+        filter.yearsOfExperience = { $gte: Number(min.replace('+', '')) };
+      }
+    }
+    if (pending === 'true') filter.isVerified = false;
+
+    const counselors = await User.find(filter).select('-password');
+    res.json(counselors);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   GET api/admin/sessions/live
+// @desc    Get live session status
+// @access  Private, Admin
+router.get('/sessions/live', [auth, admin], async (req, res) => {
+  try {
+    const sessions = await Session.find({ status: { $in: ['paid', 'completed'] } })
+      .populate('client', 'firstName lastName email')
+      .populate('counselor', 'firstName lastName email')
+      .sort({ date: -1 })
+      .limit(50); // Limit to last 50 sessions for performance
+
+    const liveSessions = sessions.map(session => ({
+      _id: session._id,
+      client: {
+        _id: session.client._id,
+        name: `${session.client.firstName} ${session.client.lastName}`,
+        email: session.client.email
+      },
+      counselor: {
+        _id: session.counselor._id,
+        name: `${session.counselor.firstName} ${session.counselor.lastName}`,
+        email: session.counselor.email
+      },
+      date: session.date,
+      duration: session.duration,
+      status: session.status,
+      videoCallUrl: session.videoCallUrl,
+      lastUpdated: session.updatedAt
+    }));
+
+    res.json({ sessions: liveSessions });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/admin/sessions/:id/override
+// @desc    Override session counselor match
+// @access  Private, Admin
+router.put('/sessions/:id/override', [auth, admin], async (req, res) => {
+  try {
+    const { counselorId } = req.body;
+    if (!counselorId) {
+      return res.status(400).json({ msg: 'Counselor ID is required' });
+    }
+
+    const session = await Session.findById(req.params.id);
+    if (!session) {
+      return res.status(404).json({ msg: 'Session not found' });
+    }
+
+    const counselor = await User.findById(counselorId);
+    if (!counselor || counselor.role !== 'counselor') {
+      return res.status(404).json({ msg: 'Counselor not found' });
+    }
+
+    session.counselor = counselor._id;
+    session.videoCallUrl = null; // Reset video call URL as it needs to be recreated
+    await session.save();
+
+    res.json({ msg: 'Session match overridden successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/admin/sessions/:id/cancel
+// @desc    Cancel a session
+// @access  Private, Admin
+router.put('/sessions/:id/cancel', [auth, admin], async (req, res) => {
+  try {
+    const session = await Session.findById(req.params.id);
+    if (!session) {
+      return res.status(404).json({ msg: 'Session not found' });
+    }
+
+    session.status = 'canceled';
+    await session.save();
+
+    res.json({ msg: 'Session canceled successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/admin/sessions/:id/extend
+// @desc    Extend session duration
+// @access  Private, Admin
+router.put('/sessions/:id/extend', [auth, admin], async (req, res) => {
+  try {
+    const { minutes } = req.body;
+    if (!minutes || isNaN(minutes)) {
+      return res.status(400).json({ msg: 'Minutes must be a number' });
+    }
+
+    const session = await Session.findById(req.params.id);
+    if (!session) {
+      return res.status(404).json({ msg: 'Session not found' });
+    }
+
+    if (session.status !== 'paid') {
+      return res.status(400).json({ msg: 'Can only extend active sessions' });
+    }
+
+    session.duration += minutes;
+    await session.save();
+
+    res.json({ msg: 'Session duration extended successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   GET api/admin/settings/matching-algorithm
+// @desc    Get the current matching algorithm setting
+// @access  Private, Admin
+router.get('/settings/matching-algorithm', [auth, admin], async (req, res) => {
+  try {
+    let setting = await Setting.findOne({ key: 'matching_algorithm' });
+
+    if (!setting) {
+      // Default to 'auto' if not set
+      setting = new Setting({ key: 'matching_algorithm', value: 'auto' });
+      await setting.save();
+    }
+
+    res.json(setting);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/admin/settings/matching-algorithm
+// @desc    Update the matching algorithm setting
+// @access  Private, Admin
+router.put('/settings/matching-algorithm', [auth, admin], async (req, res) => {
+  const { value } = req.body;
+  const allowedValues = ['auto', 'manual'];
+
+  if (!value || !allowedValues.includes(value)) {
+    return res.status(400).json({ msg: 'Invalid value provided. Must be one of: ' + allowedValues.join(', ') });
+  }
+
+  try {
+    let setting = await Setting.findOneAndUpdate(
+      { key: 'matching_algorithm' },
+      { value },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    res.json(setting);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

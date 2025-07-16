@@ -1,6 +1,6 @@
 const API_BASE_URL = import.meta.env.PROD
-  ? 'https://figma-photo-website-launch.onrender.com'
-  : 'http://localhost:3002';
+  ? 'https://figma-photo-website-launch.onrender.com/api'
+  : 'http://localhost:3002/api';
 
 const WS_BASE_URL = import.meta.env.PROD
   ? 'wss://figma-photo-website-launch.onrender.com'

@@ -11,8 +11,8 @@ import { format } from 'date-fns';
 
 interface Session {
   _id: string;
-  client: { name: string; email: string };
-  counselor: { name: string; email: string };
+  client: { firstName: string; lastName: string; email: string };
+  counselor: { firstName: string; lastName: string; email: string };
   date: string;
   time: string;
   price: number;
@@ -44,8 +44,12 @@ const AdminSessionList: React.FC = () => {
             headers: { 'x-auth-token': token },
           });
           setSessions(response.data);
-        } catch (err: any) {
-          const errorMessage = err.response?.data?.msg || 'Failed to fetch sessions.';
+        } catch (err: unknown) {
+          let errorMessage = 'Failed to fetch sessions.';
+          if (typeof err === 'object' && err !== null) {
+            const apiError = err as { response?: { data?: { msg?: string } } };
+            errorMessage = apiError.response?.data?.msg || 'Failed to fetch sessions.';
+          }
           setError(errorMessage);
           toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
         } finally {
@@ -110,11 +114,11 @@ const AdminSessionList: React.FC = () => {
                     return (
                       <TableRow key={session._id}>
                         <TableCell>
-                          <div className="font-medium">{session.client?.name || 'N/A'}</div>
+                          <div className="font-medium">{session.client ? `${session.client.firstName} ${session.client.lastName}` : 'N/A'}</div>
                           <div className="text-sm text-muted-foreground">{session.client?.email}</div>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{session.counselor?.name || 'N/A'}</div>
+                          <div className="font-medium">{session.counselor ? `${session.counselor.firstName} ${session.counselor.lastName}` : 'N/A'}</div>
                           <div className="text-sm text-muted-foreground">{session.counselor?.email}</div>
                         </TableCell>
                         <TableCell>{formattedDate}</TableCell>

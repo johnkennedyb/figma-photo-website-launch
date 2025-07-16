@@ -15,6 +15,10 @@ const SessionSchema = new mongoose.Schema({
     type: Date,
     required: true,
   },
+  duration: {
+    type: Number, // Duration in minutes
+    default: 60,
+  },
   price: {
     type: Number,
     required: true,

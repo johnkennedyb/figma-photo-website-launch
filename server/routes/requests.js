@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Request = require('../models/Request');
 const User = require('../models/User');
+const Session = require('../models/Session');
 
 // @route   POST api/requests
 // @desc    Create a connection request
@@ -50,8 +51,14 @@ router.get('/', auth, async (req, res) => {
       return res.status(403).json({ msg: 'Access denied' });
     }
 
-    const requests = await Request.find({ counselor: req.user.id, status: 'pending' })
-      .populate('client', 'name');
+    const { status } = req.query;
+
+    if (!status || !['pending', 'accepted', 'declined'].includes(status)) {
+      return res.status(400).json({ msg: 'A valid status is required' });
+    }
+
+    const requests = await Request.find({ counselor: req.user.id, status })
+      .populate('client', 'firstName lastName');
 
     res.json(requests);
   } catch (err) {
@@ -79,10 +86,46 @@ router.put('/:id', auth, async (req, res) => {
     request.status = status;
     await request.save();
 
-    // If accepted, you might want to create a client-counselor relationship
-    // For now, just updating status is enough.
+    // If the request is accepted, create a 'pending' session to enable chat.
+    if (status === 'accepted') {
+      const existingSession = await Session.findOne({
+        client: request.client,
+        counselor: request.counselor,
+      });
+
+      if (!existingSession) {
+        const newSession = new Session({
+          client: request.client,
+          counselor: request.counselor,
+          status: 'pending', // This status signifies that chat is allowed, but the session isn't fully booked.
+        });
+        await newSession.save();
+      }
+    }
 
     res.json(request);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   GET api/requests/status/:counselorId
+// @desc    Get the status of a request between a client and a counselor
+// @access  Private
+router.get('/status/:counselorId', auth, async (req, res) => {
+  try {
+    const request = await Request.findOne({
+      client: req.user.id,
+      counselor: req.params.counselorId,
+    });
+
+    if (!request) {
+      // No request has been sent yet
+      return res.json({ status: 'not_sent' });
+    }
+
+    res.json({ status: request.status });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

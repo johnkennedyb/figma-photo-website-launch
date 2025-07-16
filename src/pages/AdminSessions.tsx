@@ -10,8 +10,8 @@ import AdminSidebarLayout from '@/components/AdminSidebarLayout';
 
 interface Session {
   _id: string;
-  client: { _id: string; name: string; email: string };
-  counselor: { _id: string; name: string; email: string };
+  client: { _id: string; firstName: string; lastName: string; email: string };
+  counselor: { _id: string; firstName: string; lastName: string; email: string };
   date: string;
   sessionType: 'video' | 'chat';
   status: 'pending_payment' | 'paid' | 'completed' | 'canceled';
@@ -116,8 +116,8 @@ const AdminSessions: React.FC = () => {
             <TableBody>
               {filteredSessions.map(session => (
                 <TableRow key={session._id}>
-                  <TableCell className="font-medium">{session.client?.name || 'N/A'}</TableCell>
-                  <TableCell>{session.counselor?.name || 'N/A'}</TableCell>
+                  <TableCell className="font-medium">{session.client ? `${session.client.firstName} ${session.client.lastName}` : 'N/A'}</TableCell>
+                  <TableCell>{session.counselor ? `${session.counselor.firstName} ${session.counselor.lastName}` : 'N/A'}</TableCell>
                   <TableCell>{new Date(session.date).toLocaleString()}</TableCell>
                   <TableCell>${session.price.toFixed(2)}</TableCell>
                   <TableCell>

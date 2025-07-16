@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -35,7 +34,8 @@ const SignUp: React.FC = () => {
 
     try {
       const response = await api.post('/auth/signup', {
-        name: `${firstName} ${lastName}`,
+        firstName,
+        lastName,
         email,
         password,
         role: 'client',

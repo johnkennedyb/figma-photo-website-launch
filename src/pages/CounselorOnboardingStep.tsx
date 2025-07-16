@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Country, City } from 'country-state-city';
+import { ICountry, ICity } from 'country-state-city/lib/interface';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +25,6 @@ const stepConfigs = [
   { id: 6, title: 'Professional Background', description: 'Tell us about your qualifications and experience.', fields: ['academicQualifications', 'relevantPositions', 'yearsOfExperience'] },
   { id: 7, title: 'Specialization & Affiliations', description: 'What are your areas of expertise?', fields: ['issuesSpecialization', 'affiliations'] },
   { id: 8, title: 'Languages Spoken', description: 'What languages do you speak?', fields: ['languageProficiency'] },
-  { id: 9, title: 'Session Rates', description: 'Set your rates per session.', fields: ['sessionRate', 'ngnSessionRate'] },
 ];
 
 const CounselorOnboardingStep: React.FC = () => {
@@ -32,6 +33,8 @@ const CounselorOnboardingStep: React.FC = () => {
   const { toast } = useToast();
   const { isAuthenticated, loading: authLoading, loadUser } = useAuth();
   const currentStep = parseInt(step || '1');
+  const [countries, setCountries] = useState<ICountry[]>([]);
+  const [cities, setCities] = useState<ICity[]>([]);
 
   const [formData, setFormData] = useState(() => {
     const savedData = localStorage.getItem('counselorOnboardingData');
@@ -52,8 +55,7 @@ const CounselorOnboardingStep: React.FC = () => {
         yoruba: false,
         other: ''
       },
-      sessionRate: '',
-      ngnSessionRate: ''
+
     };
 
     if (savedData) {
@@ -68,6 +70,21 @@ const CounselorOnboardingStep: React.FC = () => {
 
     return defaultData;
   });
+
+  useEffect(() => {
+    setCountries(Country.getAllCountries());
+  }, []);
+
+  useEffect(() => {
+    if (formData.countryOfResidence) {
+      const countryInfo = Country.getCountryByCode(formData.countryOfResidence);
+      if (countryInfo) {
+        setCities(City.getCitiesOfCountry(countryInfo.isoCode) || []);
+      }
+    } else {
+      setCities([]);
+    }
+  }, [formData.countryOfResidence]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -85,7 +102,13 @@ const CounselorOnboardingStep: React.FC = () => {
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const newState = { ...prev, [name]: value };
+      if (name === 'countryOfResidence') {
+        newState.cityOfResidence = ''; // Reset city when country changes
+      }
+      return newState;
+    });
   };
 
   const handleCheckboxChange = (language: string, checked: boolean) => {
@@ -177,11 +200,40 @@ const CounselorOnboardingStep: React.FC = () => {
       case 1:
         return <Input name="name" value={formData.name} onChange={handleInputChange} placeholder="e.g., Dr. Aisha Al-Fulan" />;
       case 2:
-        return <Input name="nationality" value={formData.nationality} onChange={handleInputChange} placeholder="e.g., Emirati" />;
+        return (
+          <Select onValueChange={(value) => handleSelectChange('nationality', value)} value={formData.nationality}>
+            <SelectTrigger><SelectValue placeholder="Select your nationality" /></SelectTrigger>
+            <SelectContent className="max-h-60">
+              {countries.map((country) => (
+                <SelectItem key={`nat-${country.isoCode}`} value={country.name}>{country.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
       case 3:
-        return <Input name="countryOfResidence" value={formData.countryOfResidence} onChange={handleInputChange} placeholder="e.g., United Arab Emirates" />;
+        return (
+          <Select onValueChange={(value) => handleSelectChange('countryOfResidence', value)} value={formData.countryOfResidence}>
+            <SelectTrigger><SelectValue placeholder="Select your country of residence" /></SelectTrigger>
+            <SelectContent className="max-h-60">
+              {countries.map((country) => (
+                <SelectItem key={`res-${country.isoCode}`} value={country.isoCode}>{country.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
       case 4:
-        return <Input name="cityOfResidence" value={formData.cityOfResidence} onChange={handleInputChange} placeholder="e.g., Dubai" />;
+        return (
+          <Select onValueChange={(value) => handleSelectChange('cityOfResidence', value)} value={formData.cityOfResidence} disabled={!formData.countryOfResidence || cities.length === 0}>
+            <SelectTrigger>
+              <SelectValue placeholder={!formData.countryOfResidence ? "Select a country first" : cities.length === 0 ? "No cities available" : "Select your city"} />
+            </SelectTrigger>
+            <SelectContent className="max-h-60">
+              {cities.map((city) => (
+                <SelectItem key={city.name} value={city.name}>{city.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
       case 5:
         return (
           <Select name="maritalStatus" onValueChange={(value) => handleSelectChange('maritalStatus', value)} value={formData.maritalStatus}>
@@ -209,19 +261,7 @@ const CounselorOnboardingStep: React.FC = () => {
             <Input name="affiliations" value={formData.affiliations} onChange={handleInputChange} placeholder="Affiliations & Memberships" />
           </div>
         );
-      case 9:
-        return (
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="sessionRate" className="text-sm font-medium">Session Rate (USD)</label>
-              <Input id="sessionRate" name="sessionRate" value={formData.sessionRate} onChange={handleInputChange} placeholder="e.g., 50" type="number" />
-            </div>
-            <div>
-              <label htmlFor="ngnSessionRate" className="text-sm font-medium">Session Rate (NGN)</label>
-              <Input id="ngnSessionRate" name="ngnSessionRate" value={formData.ngnSessionRate} onChange={handleInputChange} placeholder="e.g., 25000" type="number" />
-            </div>
-          </div>
-        );
+
       case 8:
         return (
           <div className="space-y-4">

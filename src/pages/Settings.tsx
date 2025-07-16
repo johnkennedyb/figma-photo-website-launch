@@ -24,6 +24,15 @@ const SettingsPage: React.FC = () => {
     );
   }
 
+  if (user.role === 'admin') {
+    const AdminSettings = React.lazy(() => import('./AdminSettings'));
+    return (
+      <React.Suspense fallback={<SidebarLayout activePath="/settings"><div className="p-6">Loading...</div></SidebarLayout>}>
+        <AdminSettings />
+      </React.Suspense>
+    );
+  }
+
   if (user.role === 'counselor') {
     return <CounselorSettings />;
   }

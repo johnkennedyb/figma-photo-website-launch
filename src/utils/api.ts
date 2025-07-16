@@ -1,9 +1,10 @@
 import { toast } from '@/components/ui/use-toast';
+import { API_BASE_URL } from '../config';
 
 export const api = {
   get: async (endpoint: string, token?: string) => {
     try {
-      const response = await fetch(`/api${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         headers: {
           'x-auth-token': token || localStorage.getItem('token') || ''
         }
@@ -28,11 +29,7 @@ export const api = {
   post: async (endpoint: string, data: any, token?: string) => {
     try {
       // Always use the API base URL, even in development
-      const apiUrl = process.env.NODE_ENV === 'production'
-        ? `${import.meta.env.VITE_API_BASE_URL}${endpoint}`
-        : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002'}${endpoint}`;
-
-      const response = await fetch(apiUrl, {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

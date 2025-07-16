@@ -3,12 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import CounselorSidebarLayout from '@/components/CounselorSidebarLayout';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
+import { api } from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface User {
   _id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   role: string;
+  profilePicture?: string;
 }
 
 interface Message {
@@ -27,30 +30,15 @@ interface Conversation {
 const CounselorMessagesPage: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchConversations = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/counselor-login');
-        return;
-      }
-
       try {
-                const res = await fetch('/api/counselors/chats', {
-          headers: { 'x-auth-token': token },
-        });
-
-        if (!res.ok) {
-          throw new Error('Failed to fetch conversations');
-        }
-
-        const data = await res.json();
+        const { data } = await api.get<Conversation[]>('/messages');
         setConversations(data);
       } catch (error) {
-        console.error(error);
+        console.error('Failed to fetch conversations:', error);
         toast({
           title: 'Error',
           description: 'Could not load conversations.',
@@ -62,7 +50,7 @@ const CounselorMessagesPage: React.FC = () => {
     };
 
     fetchConversations();
-  }, [navigate, toast]);
+  }, [toast]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -70,7 +58,7 @@ const CounselorMessagesPage: React.FC = () => {
   };
 
   return (
-    <CounselorSidebarLayout activePath="/counselor-dashboard/messages">
+    <CounselorSidebarLayout activePath="/counselor/messages">
       <div className="p-6">
         <h1 className="text-2xl font-semibold mb-4">Messages</h1>
         <Card className="p-4">
@@ -82,15 +70,15 @@ const CounselorMessagesPage: React.FC = () => {
             <ul className="space-y-2">
               {conversations.map((convo) => (
                 <li key={convo.withUser._id}>
-                  <Link to={`/counselor-chat/${convo.withUser._id}`}>
+                  <Link to={`/counselor/chat/${convo.withUser._id}`}>
                     <div className="flex items-center p-3 rounded-lg hover:bg-gray-100 transition-colors">
                       <Avatar className="h-12 w-12 mr-4">
-                        <AvatarImage src={`https://ui-avatars.com/api/?name=${convo.withUser.name.replace(' ', '+')}&background=random`} />
-                        <AvatarFallback>{convo.withUser.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        <AvatarImage src={convo.withUser.profilePicture || `https://ui-avatars.com/api/?name=${convo.withUser.firstName}+${convo.withUser.lastName}&background=random`} />
+                        <AvatarFallback>{((convo.withUser.firstName?.[0] || '') + (convo.withUser.lastName?.[0] || '')).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div className="flex-grow">
                         <div className="flex justify-between items-center">
-                          <h3 className="font-semibold">{convo.withUser.name}</h3>
+                          <h3 className="font-semibold">{`${convo.withUser.firstName} ${convo.withUser.lastName}`}</h3>
                           <span className="text-xs text-gray-500">{formatTime(convo.lastMessage.timestamp)}</span>
                         </div>
                         <p className="text-sm text-gray-600 truncate">{convo.lastMessage.content}</p>

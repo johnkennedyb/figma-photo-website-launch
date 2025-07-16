@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { Country, City } from 'country-state-city';
+import { ICountry, ICity } from 'country-state-city/lib/interface';
 import SidebarLayout from '@/components/SidebarLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { 
   Dialog, 
@@ -22,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { toast } from 'sonner';
+import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
@@ -30,44 +33,52 @@ import { api } from '@/lib/api';
 const ClientSettings: React.FC = () => {
   const { user, logout, loading, loadUser } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    dateOfBirth: '',
-    country: '',
-    city: '',
-    maritalStatus: '',
-    nationality: '',
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    dateOfBirth: user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
+    country: user?.country || '',
+    city: user?.city || '',
+    maritalStatus: user?.maritalStatus || '',
+    nationality: user?.nationality || '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
-    resetPasswordEmail: ''
+    resetPasswordEmail: user?.email || ''
   });
+  const [countries, setCountries] = useState<ICountry[]>([]);
+  const [cities, setCities] = useState<ICity[]>([]);
+
+
 
   useEffect(() => {
-    if (user) {
-      const formattedDate = user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '';
-      setFormData(prev => ({
-        ...prev,
-        name: user.name || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        dateOfBirth: formattedDate,
-        country: user.country || '',
-        city: user.city || '',
-        maritalStatus: user.maritalStatus || '',
-        nationality: user.nationality || '',
-        resetPasswordEmail: user.email || ''
-      }));
+    setCountries(Country.getAllCountries());
+  }, []);
+
+  useEffect(() => {
+    if (formData.country) {
+      setCities(City.getCitiesOfCountry(formData.country) || []);
+    } else {
+      setCities([]);
     }
-  }, [user]);
+  }, [formData.country]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'country' && { city: '' }), // Reset city when country changes
+    }));
   };
 
   const handlePersonalInfoSubmit = async (e: React.FormEvent) => {
@@ -75,7 +86,8 @@ const ClientSettings: React.FC = () => {
 
 
     const payload = {
-      name: formData.name,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
       phone: formData.phone,
       dateOfBirth: formData.dateOfBirth,
       country: formData.country,
@@ -86,10 +98,15 @@ const ClientSettings: React.FC = () => {
 
     try {
       await api.put('/users/personal-info', payload);
-      toast.success('Personal information updated successfully');
+      toast({ title: 'Success', description: 'Personal information updated successfully' });
       loadUser(); // Refresh user data
-    } catch (err: any) {
-      toast.error(err.response?.data?.msg || 'Failed to update personal information.');
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to update personal information.';
+      if (typeof err === 'object' && err !== null) {
+        const apiError = err as { response?: { data?: { msg?: string } } };
+        errorMessage = apiError.response?.data?.msg || errorMessage;
+      }
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     }
   };
 
@@ -97,7 +114,7 @@ const ClientSettings: React.FC = () => {
     e.preventDefault();
 
     if (formData.newPassword !== formData.confirmPassword) {
-      toast.error('New passwords do not match.');
+      toast({ title: 'Error', description: 'New passwords do not match.', variant: 'destructive' });
       return;
     }
 
@@ -108,10 +125,15 @@ const ClientSettings: React.FC = () => {
 
     try {
       const response = await api.put('/users/change-password', payload);
-      toast.success(response.data.msg || 'Password changed successfully');
+      toast({ title: 'Success', description: response.data.msg || 'Password changed successfully' });
       setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
-    } catch (err: any) {
-      toast.error(err.response?.data?.msg || 'Failed to change password.');
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to change password.';
+      if (typeof err === 'object' && err !== null) {
+        const apiError = err as { response?: { data?: { msg?: string } } };
+        errorMessage = apiError.response?.data?.msg || errorMessage;
+      }
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     }
   };
 
@@ -119,10 +141,15 @@ const ClientSettings: React.FC = () => {
     e.preventDefault();
     try {
       await api.post('/auth/forgot-password', { email: formData.resetPasswordEmail });
-      toast.success('Password reset instructions sent to your email.');
+      toast({ title: 'Success', description: 'Password reset instructions sent to your email.' });
       setShowResetPasswordDialog(false);
-    } catch (err: any) {
-      toast.error(err.response?.data?.msg || 'Failed to send reset link.');
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to send reset link.';
+      if (typeof err === 'object' && err !== null) {
+        const apiError = err as { response?: { data?: { msg?: string } } };
+        errorMessage = apiError.response?.data?.msg || errorMessage;
+      }
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     }
   };
 
@@ -154,8 +181,12 @@ const ClientSettings: React.FC = () => {
               <form onSubmit={handlePersonalInfoSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                   <div>
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" name="name" value={formData.name} onChange={handleChange} className="mt-1" />
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input id="firstName" name="firstName" value={formData.firstName} onChange={handleChange} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input id="lastName" name="lastName" value={formData.lastName} onChange={handleChange} className="mt-1" />
                   </div>
                   <div>
                     <Label htmlFor="email">Email</Label>
@@ -171,19 +202,62 @@ const ClientSettings: React.FC = () => {
                   </div>
                   <div>
                     <Label htmlFor="country">Country</Label>
-                    <Input id="country" name="country" value={formData.country} onChange={handleChange} className="mt-1" />
+                    <Select name="country" value={formData.country} onValueChange={(value) => handleSelectChange('country', value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select your country" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {countries.map((country) => (
+                          <SelectItem key={country.isoCode} value={country.isoCode}>
+                            {country.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="city">City</Label>
-                    <Input id="city" name="city" value={formData.city} onChange={handleChange} className="mt-1" />
+                    <Select name="city" value={formData.city} onValueChange={(value) => handleSelectChange('city', value)} disabled={!formData.country || cities.length === 0}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder={!formData.country ? "Select a country first" : cities.length === 0 ? "No cities available" : "Select your city"} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {cities.map((city) => (
+                          <SelectItem key={city.name} value={city.name}>
+                            {city.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="maritalStatus">Marital Status</Label>
-                    <Input id="maritalStatus" name="maritalStatus" value={formData.maritalStatus} onChange={handleChange} className="mt-1" />
+                    <Select name="maritalStatus" value={formData.maritalStatus} onValueChange={(value) => handleSelectChange('maritalStatus', value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select marital status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="single">Single</SelectItem>
+                        <SelectItem value="married">Married</SelectItem>
+                        <SelectItem value="divorced">Divorced</SelectItem>
+                        <SelectItem value="widowed">Widowed</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="nationality">Nationality</Label>
-                    <Input id="nationality" name="nationality" value={formData.nationality} onChange={handleChange} className="mt-1" />
+                    <Select name="nationality" value={formData.nationality} onValueChange={(value) => handleSelectChange('nationality', value)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select your nationality" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {countries.map((country) => (
+                          <SelectItem key={country.name} value={country.name}>
+                            {country.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <div className="flex justify-end">

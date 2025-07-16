@@ -7,11 +7,14 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Bell } from 'lucide-react';
 import { RescheduleSessionModal } from '@/components/RescheduleSessionModal';
-import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
+import { api } from '@/lib/api';
 
 interface Client {
   _id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
 }
 
 interface Session {
@@ -20,18 +23,19 @@ interface Session {
   date: string;
   duration: number;
   sessionType: 'video' | 'text';
-  status: 'paid' | 'completed' | 'canceled' | 'upcoming';
+  status: 'paid' | 'completed' | 'canceled' | 'upcoming' | 'pending_payment';
   videoCallUrl?: string;
 }
 
 const CounselorSessions: React.FC = () => {
   const [activeTab, setActiveTab] = useState('past');
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [user, setUser] = useState<any>(null);
+  const { user, token } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -40,53 +44,44 @@ const CounselorSessions: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/counselor-login');
-        return;
-      }
       try {
-        const apiUrl = import.meta.env.VITE_API_BASE_URL;
-        const [sessionsRes, userRes] = await Promise.all([
-          fetch(`${apiUrl}/api/sessions`, { headers: { 'x-auth-token': token } }),
-          fetch(`${apiUrl}/api/auth/me`, { headers: { 'x-auth-token': token } })
-        ]);
-        if (!sessionsRes.ok || !userRes.ok) throw new Error('Failed to fetch data');
-        const sessionsData = await sessionsRes.json();
-        const userData = await userRes.json();
-        setSessions(sessionsData);
-        setUser(userData);
-      } catch (error) {
+        const response = await api.get('/sessions');
+        setSessions(response.data);
+      } catch (error: unknown) {
         console.error('Failed to fetch sessions:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch sessions.',
+          variant: 'destructive',
+        });
       } finally {
         setIsLoading(false);
       }
     };
-    fetchData();
-  }, [navigate]);
+
+    if (token) {
+      fetchData();
+    } else if (!isLoading) {
+      navigate('/counselor-login');
+    }
+  }, [token, navigate, toast, isLoading]);
 
   const handleCompleteSession = async (sessionId: string) => {
-    const token = localStorage.getItem('token');
     try {
-      const apiUrl = import.meta.env.VITE_API_BASE_URL;
-      const res = await fetch(`${apiUrl}/api/sessions/${sessionId}/complete`, {
-        method: 'PUT',
-        headers: { 'x-auth-token': token || '' },
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.msg || 'Failed to complete session');
-      }
-
+      await api.put(`/sessions/${sessionId}/complete`);
       setSessions(prevSessions =>
         prevSessions.map(s =>
           s._id === sessionId ? { ...s, status: 'completed' } : s
         )
       );
-      toast.success('Session marked as complete! Funds added to your wallet.');
-    } catch (error) {
-      toast.error((error as Error).message);
+      toast({ title: 'Success', description: 'Session marked as complete! Funds added to your wallet.' });
+    } catch (error: unknown) {
+      let errorMessage = 'Failed to complete session.';
+      if (typeof error === 'object' && error !== null) {
+        const apiError = error as { response?: { data?: { msg?: string } } };
+        errorMessage = apiError.response?.data?.msg || errorMessage;
+      }
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     }
   };
 
@@ -94,16 +89,16 @@ const CounselorSessions: React.FC = () => {
     setSessions(sessions.map(s => s._id === updatedSession._id ? updatedSession : s));
   };
 
-  const upcomingSessions = sessions.filter(s => (s.status === 'paid' || s.status === 'upcoming') && new Date(s.date) > new Date());
+  const upcomingSessions = sessions.filter(s => (['paid', 'upcoming', 'pending_payment'].includes(s.status)) && new Date(s.date) > new Date());
   const needsCompletionSessions = sessions.filter(s => s.status === 'paid' && new Date(s.date) <= new Date());
   const completedSessions = sessions.filter(s => s.status === 'completed');
 
   return (
     <div className="dashboard-background">
-      <CounselorSidebarLayout activePath="/counselor-sessions">
+      <CounselorSidebarLayout activePath="/counselor/sessions">
         <div className="dashboard-background min-h-screen p-6">
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-2xl font-semibold text-white">Welcome {user?.name}! 👋</h1>
+            <h1 className="text-2xl font-semibold text-white">Welcome {user?.firstName} {user?.lastName}! 👋</h1>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="bg-white/20 text-white border-white/30 hover:bg-white/30">
                 <Search size={16} className="mr-2" />
@@ -134,14 +129,14 @@ const CounselorSessions: React.FC = () => {
                           <div key={session._id} className="flex items-center justify-between py-3 border-b last:border-b-0">
                             <div className="flex items-center">
                               <span className="text-gray-600 mr-4">{index + 1}.</span>
-                              <span className="text-gray-700">{session.client?.name || 'Client'}</span>
+                              <span className="text-gray-700">{(session.client ? `${session.client.firstName} ${session.client.lastName}` : undefined) || 'Client'}</span>
                             </div>
                             <div className="flex gap-2">
                               <Button onClick={() => handleCompleteSession(session._id)} size="sm" className="bg-green-600 hover:bg-green-700">
                                 Complete Session
                               </Button>
                               <Button asChild size="sm" className="bg-teal-600 hover:bg-teal-700">
-                                <Link to={`/counselor-chat/${session.client?._id}`}>Message Client</Link>
+                                <Link to={`/counselor/chat/${session.client?._id}`}>Message Client</Link>
                               </Button>
                             </div>
                           </div>
@@ -150,12 +145,12 @@ const CounselorSessions: React.FC = () => {
                           <div key={session._id} className="flex items-center justify-between py-3 border-b last:border-b-0">
                             <div className="flex items-center">
                               <span className="text-gray-600 mr-4">{index + needsCompletionSessions.length + 1}.</span>
-                              <span className="text-gray-700">{session.client?.name || 'Client'}</span>
+                              <span className="text-gray-700">{(session.client ? `${session.client.firstName} ${session.client.lastName}` : undefined) || 'Client'}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-green-600 font-medium">Completed</span>
                               <Button asChild size="sm" variant="outline">
-                                <Link to={`/counselor-chat/${session.client?._id}`}>View Chat</Link>
+                                <Link to={`/counselor/chat/${session.client?._id}`}>View Chat</Link>
                               </Button>
                             </div>
                           </div>
@@ -176,7 +171,7 @@ const CounselorSessions: React.FC = () => {
                       return (
                         <div key={session._id} className="flex items-center justify-between py-3 border-b last:border-b-0">
                           <div className="flex items-center">
-                            <span className="text-gray-700">{session.client?.name || 'Client'}</span>
+                            <span className="text-gray-700">{(session.client ? `${session.client.firstName} ${session.client.lastName}` : undefined) || 'Client'}</span>
                             <span className="text-gray-500 ml-4">
                               {new Date(session.date).toLocaleDateString()} - {new Date(session.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
@@ -193,7 +188,7 @@ const CounselorSessions: React.FC = () => {
                               </Button>
                             )}
                             <Button asChild size="sm" variant="outline">
-                              <Link to={`/counselor-chat/${session.client?._id}`}>Message Client</Link>
+                              <Link to={`/counselor/chat/${session.client?._id}`}>Message Client</Link>
                             </Button>
                           </div>
                         </div>
