@@ -42,6 +42,9 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Handle CORS pre-flight requests for all routes
+app.options('*', cors(corsOptions));
+
 // Connect Database
 connectDB();
 
