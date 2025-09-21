@@ -42,23 +42,32 @@ router.post('/', auth, async (req, res) => {
 });
 
 // @route   GET api/requests
-// @desc    Get all requests for a counselor
+// @desc    Get all requests for a user (counselor or client)
 // @access  Private
 router.get('/', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    if (user.role !== 'counselor') {
+    let requests = [];
+
+    if (user.role === 'counselor') {
+      const { status } = req.query;
+
+      if (status && !['pending', 'accepted', 'declined'].includes(status)) {
+        return res.status(400).json({ msg: 'A valid status is required' });
+      }
+
+      const query = { counselor: req.user.id };
+      if (status) query.status = status;
+
+      requests = await Request.find(query)
+        .populate('client', 'firstName lastName');
+    } else if (user.role === 'client') {
+      // Get all requests made by this client
+      requests = await Request.find({ client: req.user.id })
+        .populate('counselor', 'firstName lastName issuesSpecialization profilePicture averageRating sessionRate ngnSessionRate yearsOfExperience');
+    } else {
       return res.status(403).json({ msg: 'Access denied' });
     }
-
-    const { status } = req.query;
-
-    if (!status || !['pending', 'accepted', 'declined'].includes(status)) {
-      return res.status(400).json({ msg: 'A valid status is required' });
-    }
-
-    const requests = await Request.find({ counselor: req.user.id, status })
-      .populate('client', 'firstName lastName');
 
     res.json(requests);
   } catch (err) {

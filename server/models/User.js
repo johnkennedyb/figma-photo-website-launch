@@ -93,6 +93,25 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  
+  // Counselor approval status
+  approvalStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: function() {
+      return this.role === 'counselor' ? 'pending' : 'approved';
+    }
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  approvedAt: {
+    type: Date
+  },
+  rejectionReason: {
+    type: String
+  },
 
   // Counselor onboarding fields
   countryOfResidence: { type: String },
@@ -110,6 +129,16 @@ const UserSchema = new mongoose.Schema({
       p256dh: String,
       auth: String,
     },
+  },
+
+  // Password reset fields
+  passwordResetToken: {
+    type: String,
+    select: false,
+  },
+  passwordResetExpires: {
+    type: Date,
+    select: false,
   },
 
 });

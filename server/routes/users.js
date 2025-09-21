@@ -25,7 +25,55 @@ router.get('/favorites', auth, async (req, res) => {
   }
 });
 
-// @route   PUT api/users/favorites/:counselorId
+// @route   POST api/users/favorites/:counselorId
+// @desc    Add a favorite counselor
+// @access  Private
+router.post('/favorites/:counselorId', auth, async (req, res) => {
+  try {
+    const counselorId = req.params.counselorId;
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { $addToSet: { favoriteCounselors: counselorId } },
+      { new: true, runValidators: false }
+    ).populate('favoriteCounselors', 'firstName lastName email specialties rating');
+
+    res.json({ msg: 'Added to favorites', favorites: updatedUser.favoriteCounselors });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   DELETE api/users/favorites/:counselorId
+// @desc    Remove a favorite counselor
+// @access  Private
+router.delete('/favorites/:counselorId', auth, async (req, res) => {
+  try {
+    const counselorId = req.params.counselorId;
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { $pull: { favoriteCounselors: counselorId } },
+      { new: true, runValidators: false }
+    ).populate('favoriteCounselors', 'firstName lastName email specialties rating');
+
+    res.json({ msg: 'Removed from favorites', favorites: updatedUser.favoriteCounselors });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/users/favorites/:counselorId (Legacy)
 // @desc    Add or remove a favorite counselor
 // @access  Private
 router.put('/favorites/:counselorId', auth, async (req, res) => {
@@ -254,6 +302,97 @@ const getClientProfileHandler = async (req, res) => {
 router.get('/fetch-client-profile/:id', auth, getClientProfileHandler);
 // new alias expected by frontend
 router.get('/client/:id', auth, getClientProfileHandler);
+
+// @route   GET api/users/activity-logs
+// @desc    Get user's activity logs
+// @access  Private
+router.get('/activity-logs', auth, async (req, res) => {
+  try {
+    // Mock activity logs for now - would be implemented with ActivityLog model
+    const mockActivities = [
+      {
+        _id: '1',
+        action: 'login',
+        details: 'Logged in to your account',
+        timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 mins ago
+      },
+      {
+        _id: '2',
+        action: 'profile_updated',
+        details: 'Updated personal information',
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
+      },
+      {
+        _id: '3',
+        action: 'favorite_added',
+        details: 'Added a counselor to favorites',
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+      }
+    ];
+    
+    res.json(mockActivities);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST api/users/support/contact
+// @desc    Send support message
+// @access  Private
+router.post('/support/contact', auth, async (req, res) => {
+  try {
+    const { subject, message } = req.body;
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // Send email to support using actual sendEmail utility
+    const sendEmail = require('../utils/sendEmail');
+    try {
+      await sendEmail({
+        email: 'support@quluub.com',
+        subject: `Support Request: ${subject}`,
+        message: `From: ${user.firstName} ${user.lastName} (${user.email})\nRole: ${user.role}\n\nMessage:\n${message}`
+      });
+    } catch (emailErr) {
+      console.error('Failed to send support email:', emailErr);
+    }
+    
+    res.json({ msg: 'Support message sent successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/users/hide-account
+// @desc    Hide user account from search
+// @access  Private
+router.put('/hide-account', auth, async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user.id, { isVisible: false });
+    res.json({ msg: 'Account hidden successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   DELETE api/users/account
+// @desc    Delete user account
+// @access  Private
+router.delete('/account', auth, async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.user.id);
+    res.json({ msg: 'Account deleted successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
 
 
 // THIS MUST BE THE LAST ROUTE

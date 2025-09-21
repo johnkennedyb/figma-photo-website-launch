@@ -20,8 +20,10 @@ router.post('/onboarding', auth, async (req, res) => {
     licenseNumber,
     fieldOfSpecialization,
     yearsOfExperience,
-    specializations,
-    languages,
+    specialization,
+    otherSpecialization,
+    language,
+    otherLanguage,
     bio,
   } = req.body;
 
@@ -34,34 +36,30 @@ router.post('/onboarding', auth, async (req, res) => {
       return res.status(403).json({ msg: 'Access denied. User is not a counselor.' });
     }
 
-    const counselorFields = {
-      user: req.user.id,
-      nationality,
-      countryOfResidence,
-      cityOfResidence,
-      maritalStatus,
-      dateOfBirth,
-      university,
-      licenseNumber,
-      fieldOfSpecialization,
-      yearsOfExperience,
-      specializations,
-      languages,
-      bio,
-    };
+    // Process specializations and languages
+    const finalSpecialization = specialization === 'Other' ? otherSpecialization : specialization;
+    const finalLanguage = language === 'Other' ? otherLanguage : language;
 
-    // Find counselor profile and update if it exists, or create a new one
-    let counselor = await Counselor.findOneAndUpdate(
-      { user: req.user.id },
-      { $set: counselorFields },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
-
-    // Mark onboarding as complete on the User model
+    // Update user fields directly since all counselor data is stored in User model
+    user.nationality = nationality;
+    user.countryOfResidence = countryOfResidence;
+    user.cityOfResidence = cityOfResidence;
+    user.maritalStatus = maritalStatus;
+    user.dateOfBirth = dateOfBirth;
+    user.academicQualifications = university;
+    user.yearsOfExperience = yearsOfExperience;
+    user.issuesSpecialization = finalSpecialization;
+    user.languages = finalLanguage ? [finalLanguage] : [];
+    user.bio = bio;
     user.onboardingCompleted = true;
+
     await user.save();
 
-    res.json(counselor);
+    // Return the updated user without password
+    const userResponse = { ...user.toObject() };
+    delete userResponse.password;
+
+    res.json(userResponse);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -73,7 +71,10 @@ router.post('/onboarding', auth, async (req, res) => {
 // @access  Public
 router.get('/', auth, async (req, res) => {
   try {
-    const counselorsData = await User.find({ role: 'counselor' }).select('-password');
+    const counselorsData = await User.find({ 
+      role: 'counselor', 
+      approvalStatus: 'approved' 
+    }).select('-password');
 
     // Ensure data consistency for the frontend
     const counselors = counselorsData.map(c => {
@@ -82,12 +83,19 @@ router.get('/', auth, async (req, res) => {
         ...counselorObj,
         _id: counselorObj._id,
         name: `${counselorObj.firstName || 'Counselor'} ${counselorObj.lastName || ''}`.trim(),
+        firstName: counselorObj.firstName,
+        lastName: counselorObj.lastName,
         specialty: counselorObj.issuesSpecialization || 'General Wellness',
         profilePicture: counselorObj.profilePicture || '',
         averageRating: counselorObj.averageRating || 0,
         sessionRate: counselorObj.sessionRate || 50,
         ngnSessionRate: counselorObj.ngnSessionRate || 25000,
         country: counselorObj.countryOfResidence || 'N/A',
+        city: counselorObj.cityOfResidence || 'N/A',
+        state: counselorObj.state || 'N/A',
+        yearsOfExperience: counselorObj.yearsOfExperience || 'N/A',
+        education: counselorObj.academicQualifications || counselorObj.education || 'N/A',
+        languages: counselorObj.languages || [],
       };
     });
 
@@ -189,15 +197,21 @@ router.get('/:id', auth, async (req, res) => {
     }
     const counselorProfile = {
       ...counselor,
+      name: `${counselor.firstName || 'Counselor'} ${counselor.lastName || ''}`.trim(),
       firstName: counselor.firstName,
       lastName: counselor.lastName,
       specialty: counselor.issuesSpecialization || (counselor.specialties && counselor.specialties.join(', ')) || 'Not specified',
       rating: counselor.rating || 4.5,
+      averageRating: counselor.averageRating || 0,
       experience: counselor.yearsOfExperience || counselor.experience || 'N/A',
+      yearsOfExperience: counselor.yearsOfExperience || 'N/A',
       education: counselor.academicQualifications || counselor.education || 'N/A',
       certifications: counselor.certifications || (counselor.affiliations ? [counselor.affiliations] : []),
-      sessionRate: parseFloat(String(counselor.sessionRate).replace(/[^\d.]/g, '')) || 0,
-      ngnSessionRate: parseFloat(String(counselor.ngnSessionRate).replace(/[^\d.]/g, '')) || 0,
+      sessionRate: parseFloat(String(counselor.sessionRate).replace(/[^\d.]/g, '')) || 50,
+      ngnSessionRate: parseFloat(String(counselor.ngnSessionRate).replace(/[^\d.]/g, '')) || 25000,
+      country: counselor.countryOfResidence || 'N/A',
+      city: counselor.cityOfResidence || 'N/A',
+      languages: counselor.languages || [],
     };
     delete counselorProfile.password; // ensure password is not sent
 

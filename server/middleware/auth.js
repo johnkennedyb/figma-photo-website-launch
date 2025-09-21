@@ -30,6 +30,7 @@ module.exports = async function (req, res, next) {
     }
 
     req.user = user; // Attach the full user object to the request
+    req.user.id = user._id; // Also add .id for backward compatibility
     console.log(`[Auth Middleware] Authenticated user ID: ${req.user.id}, Role: ${req.user.role}`);
     next();
   } catch (err) {

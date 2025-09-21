@@ -20,6 +20,9 @@ const ComplaintSchema = new mongoose.Schema({
     enum: ['pending', 'under_review', 'resolved', 'dismissed'],
     default: 'pending',
   },
+  resolution: {
+    type: String,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

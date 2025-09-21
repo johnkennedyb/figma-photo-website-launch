@@ -16,7 +16,7 @@ router.get('/:userId', auth, async (req, res) => {
         { sender: req.user.id, receiver: req.params.userId },
         { sender: req.params.userId, receiver: req.user.id },
       ],
-    }).populate('sender', 'name role').populate('receiver', 'name role').sort({ timestamp: 1 });
+    }).populate('sender', 'firstName lastName role').populate('receiver', 'firstName lastName role').sort({ timestamp: 1 });
 
     res.json(messages);
   } catch (err) {
@@ -67,7 +67,8 @@ router.get('/', auth, async (req, res) => {
           lastMessage: 1,
           withUser: {
             _id: '$withUserArray._id',
-            name: '$withUserArray.name',
+            firstName: '$withUserArray.firstName',
+            lastName: '$withUserArray.lastName',
             role: '$withUserArray.role',
             profilePicture: '$withUserArray.profilePicture',
           },
@@ -80,7 +81,7 @@ router.get('/', auth, async (req, res) => {
     // We need to populate the sender and receiver fields within it for the frontend.
     const populatedConversations = await Message.populate(conversations, {
       path: 'lastMessage.sender lastMessage.receiver',
-      select: 'name role'
+      select: 'firstName lastName role'
     });
 
     res.json(populatedConversations);

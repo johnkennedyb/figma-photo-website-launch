@@ -16,7 +16,7 @@ const { createVideoCall } = require('../helpers/videoCallHelper');
 // @desc    Create a payment checkout session for booking
 // @access  Private
 router.post('/create-checkout-session', auth, async (req, res) => {
-  const { counselorId, date, time, currency } = req.body;
+  const { counselorId, sessionDate, date, time, currency } = req.body;
   const clientId = req.user.id;
 
   try {
@@ -41,8 +41,15 @@ router.post('/create-checkout-session', auth, async (req, res) => {
       return res.status(400).json({ msg: 'Unsupported currency' });
     }
 
-    // Use the current date and time as a fallback if not provided
-    const sessionDateTime = (date && time) ? new Date(`${date}T${time}`) : new Date();
+    // Use sessionDate if provided, otherwise fallback to date/time combination, or current date
+    let sessionDateTime;
+    if (sessionDate) {
+      sessionDateTime = new Date(sessionDate);
+    } else if (date && time) {
+      sessionDateTime = new Date(`${date}T${time}`);
+    } else {
+      sessionDateTime = new Date();
+    }
 
     const newSession = new Session({
       client: clientId,
@@ -64,8 +71,8 @@ router.post('/create-checkout-session', auth, async (req, res) => {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: `Counseling session with ${counselor.name}`,
-              description: `Booking for ${date} at ${time}`,
+              name: `Counseling session with ${counselor.firstName} ${counselor.lastName}`,
+              description: `Booking for ${sessionDateTime.toLocaleDateString()} at ${sessionDateTime.toLocaleTimeString()}`,
             },
             unit_amount: priceInCents,
           },
