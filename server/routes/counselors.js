@@ -67,14 +67,56 @@ router.post('/onboarding', auth, async (req, res) => {
 });
 
 // @route   GET api/counselors
-// @desc    Get all counselors
+// @desc    Get all counselors with optional search and filtering
 // @access  Public
 router.get('/', auth, async (req, res) => {
   try {
-    const counselorsData = await User.find({ 
-      role: 'counselor', 
-      approvalStatus: 'approved' 
-    }).select('-password');
+    const { search, expertise, specialty, country, state, city } = req.query;
+    
+    // Build search filter
+    let filter = { 
+      role: 'counselor' 
+    };
+    
+    // Add search functionality
+    if (search) {
+      filter.$or = [
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Add expertise search across multiple fields
+    if (expertise) {
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { issuesSpecialization: { $regex: expertise, $options: 'i' } },
+          { academicQualifications: { $regex: expertise, $options: 'i' } },
+          { bio: { $regex: expertise, $options: 'i' } },
+          { languages: { $in: [new RegExp(expertise, 'i')] } },
+          { specialties: { $in: [new RegExp(expertise, 'i')] } }
+        ]
+      });
+    }
+    
+    // Add location filters
+    if (country) filter.countryOfResidence = country;
+    if (state) filter.state = state;
+    if (city) filter.cityOfResidence = city;
+    
+    // Add specialty filter
+    if (specialty) {
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { issuesSpecialization: { $regex: specialty, $options: 'i' } },
+          { specialties: { $in: [new RegExp(specialty, 'i')] } }
+        ]
+      });
+    }
+    
+    const counselorsData = await User.find(filter).select('-password');
 
     // Ensure data consistency for the frontend
     const counselors = counselorsData.map(c => {

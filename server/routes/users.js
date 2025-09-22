@@ -233,7 +233,7 @@ router.put('/counselor-onboarding', auth, async (req, res) => {
     bio
   } = req.body;
 
-  const onboardingFields = {};
+  const onboardingFields = { onboardingCompleted: true };
   if (academicQualifications) onboardingFields.academicQualifications = academicQualifications;
   if (yearsOfExperience) onboardingFields.yearsOfExperience = yearsOfExperience;
   if (specializations) onboardingFields.issuesSpecialization = specializations.join(', ');
@@ -251,9 +251,10 @@ router.put('/counselor-onboarding', auth, async (req, res) => {
       return res.status(404).json({ msg: 'User not found' });
     }
 
+    console.log(`[Counselor Onboarding] Completed for user ${user.email} with approvalStatus: ${user.approvalStatus}`);
     res.json(user);
   } catch (err) {
-    console.error(err.message);
+    console.error('[Counselor Onboarding] Error:', err.message);
     res.status(500).send('Server Error');
   }
 });

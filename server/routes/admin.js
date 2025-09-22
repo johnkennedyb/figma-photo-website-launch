@@ -71,12 +71,20 @@ router.get('/dashboard-overview', [auth, admin], async (req, res) => {
 // @access  Private, Admin
 router.get('/users', [auth, admin], async (req, res) => {
   try {
-    console.log('[Admin Users] Request received with query:', req.query);
+    console.log('--- NEW REQUEST ---');
+    console.log('[Admin Users] Request received at:', new Date().toISOString());
+    console.log('[Admin Users] Full query object:', req.query);
     const { role, status, page = 1, limit = 10 } = req.query;
     
     let filter = {};
-    if (role && role !== 'all') filter.role = role;
-    if (status && role === 'counselor') filter.approvalStatus = status;
+    if (role && role !== 'all') {
+      filter.role = role;
+    }
+    
+    // Apply approval status filter for counselors
+    if (role === 'counselor' && status && status !== 'all') {
+      filter.approvalStatus = status;
+    }
     
     console.log('[Admin Users] Filter applied:', filter);
     
@@ -84,13 +92,19 @@ router.get('/users', [auth, admin], async (req, res) => {
     
     const users = await User.find(filter)
       .select('-password')
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .skip(skip)
       .limit(parseInt(limit));
     
     const total = await User.countDocuments(filter);
     
     console.log(`[Admin Users] Found ${users.length} users out of ${total} total`);
+    console.log('[Admin Users] Sample users:', users.slice(0, 3).map(u => ({ 
+      name: `${u.firstName} ${u.lastName}`, 
+      email: u.email, 
+      role: u.role, 
+      approvalStatus: u.approvalStatus 
+    })));
     
     res.json({
       users,
@@ -250,6 +264,139 @@ router.put('/counselors/:id/rate', [auth, admin], async (req, res) => {
         ngnSessionRate: counselor.ngnSessionRate
       }
     });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/admin/users/:id/verify
+// @desc    Verify/approve a counselor
+// @access  Private, Admin
+router.put('/users/:id/verify', [auth, admin], async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+    
+    user.approvalStatus = 'approved';
+    user.isVerified = true;
+    await user.save();
+    
+    res.json({
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      isVerified: user.isVerified,
+      approvalStatus: user.approvalStatus,
+      isSuspended: user.isSuspended,
+      isVisible: user.isVisible,
+      createdAt: user.createdAt
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/admin/users/:id/reject
+// @desc    Reject a counselor
+// @access  Private, Admin
+router.put('/users/:id/reject', [auth, admin], async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+    
+    user.approvalStatus = 'rejected';
+    await user.save();
+    
+    res.json({
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      isVerified: user.isVerified,
+      approvalStatus: user.approvalStatus,
+      isSuspended: user.isSuspended,
+      isVisible: user.isVisible
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/admin/users/:id/suspend
+// @desc    Suspend/unsuspend a user
+// @access  Private, Admin
+router.put('/users/:id/suspend', [auth, admin], async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+    
+    user.isSuspended = !user.isSuspended;
+    await user.save();
+    
+    res.json({
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      isSuspended: user.isSuspended
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   DELETE api/admin/users/:id
+// @desc    Delete a user
+// @access  Private, Admin
+router.delete('/users/:id', [auth, admin], async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+    
+    await User.findByIdAndDelete(req.params.id);
+    
+    res.json({ msg: 'User deleted successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/admin/complaints/:id/status
+// @desc    Update complaint status
+// @access  Private, Admin
+router.put('/complaints/:id/status', [auth, admin], async (req, res) => {
+  try {
+    const { status } = req.body;
+    
+    const complaint = await Complaint.findById(req.params.id)
+      .populate('reporter', 'firstName lastName email')
+      .populate('reportedUser', 'firstName lastName email role');
+      
+    if (!complaint) {
+      return res.status(404).json({ msg: 'Complaint not found' });
+    }
+    
+    complaint.status = status;
+    await complaint.save();
+    
+    res.json(complaint);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

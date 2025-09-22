@@ -64,50 +64,21 @@ router.post('/signup',
         return res.status(400).json({ msg: 'User already exists' });
       }
 
-      // For counselors, require email verification. For clients, auto-verify as before.
-      const isCounselor = role === 'counselor';
-
+      // All users are auto-verified now
       user = new User({
         firstName,
         lastName,
         email,
         password,
         role,
-        isVerified: isCounselor ? false : true,
+        isVerified: true, // Auto-verify all roles
       });
 
       const salt = await bcrypt.genSalt(10);
       user.password = await bcrypt.hash(password, salt);
       await user.save();
 
-      const clientBase = process.env.CLIENT_URL || 'http://localhost:8080';
-
-      if (isCounselor) {
-        // Generate email verification token and send email
-        const verificationToken = user.createEmailVerificationToken();
-        await user.save({ validateBeforeSave: false });
-
-        const verifyURL = `${clientBase}/counselor-verify-email?token=${verificationToken}`;
-        const message = `Welcome to Quluub! Please verify your email by clicking the link below to activate your counselor account.\n\n${verifyURL}\n\nThis link expires in 10 minutes.`;
-
-        try {
-          await sendEmail({
-            email: user.email,
-            subject: 'Verify Your Counselor Email - Quluub',
-            message,
-          });
-        } catch (e) {
-          // If email fails, clean up the verification fields
-          user.emailVerificationToken = undefined;
-          user.emailVerificationTokenExpires = undefined;
-          await user.save({ validateBeforeSave: false });
-          return res.status(500).json({ msg: 'Verification email could not be sent' });
-        }
-
-        return res.status(201).json({ msg: 'Verification email sent. Please check your inbox to activate your account.' });
-      }
-
-      // Auto-verified (client) -> issue token directly
+      // Issue token directly for all roles
       const payload = {
         user: {
           id: user.id,
@@ -320,7 +291,6 @@ router.get('/verify-email/:token', async (req, res) => {
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'your-google-client-id';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'your-google-client-secret';
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:8080';
-const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3002';
 
 // @route   GET api/auth/google
 // @desc    Google OAuth redirect
@@ -331,7 +301,7 @@ router.get('/google', (req, res) => {
   
   const googleAuthURL = 'https://accounts.google.com/o/oauth2/v2/auth?' + querystring.stringify({
     client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: `${SERVER_URL}/api/auth/google/callback`,
+    redirect_uri: `${req.protocol}://${req.get('host')}/api/auth/google/callback`,
     scope: 'openid email profile',
     response_type: 'code',
     state: state,
@@ -413,7 +383,7 @@ async function exchangeCodeForTokens(code, req) {
       client_secret: GOOGLE_CLIENT_SECRET,
       code: code,
       grant_type: 'authorization_code',
-      redirect_uri: `${SERVER_URL}/api/auth/google/callback`
+      redirect_uri: `${req.protocol}://${req.get('host')}/api/auth/google/callback`
     });
 
     const options = {

@@ -1,6 +1,11 @@
 const nodemailer = require('nodemailer');
 
 const sendEmail = async (options) => {
+  // Check if email configuration is available
+  if (!process.env.EMAIL_HOST || !process.env.EMAIL_USERNAME || !process.env.EMAIL_PASSWORD) {
+    throw new Error('Email configuration is missing. Please configure EMAIL_HOST, EMAIL_USERNAME, and EMAIL_PASSWORD in your environment variables.');
+  }
+
   // 1) Create a transporter using Mailtrap for development
   const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
