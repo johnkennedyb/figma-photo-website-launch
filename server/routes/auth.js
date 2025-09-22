@@ -290,6 +290,7 @@ router.get('/verify-email/:token', async (req, res) => {
 // Google OAuth configuration
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'your-google-client-id';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'your-google-client-secret';
+const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3002';
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:8080';
 
 // @route   GET api/auth/google
@@ -301,7 +302,7 @@ router.get('/google', (req, res) => {
   
   const googleAuthURL = 'https://accounts.google.com/o/oauth2/v2/auth?' + querystring.stringify({
     client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: `${req.protocol}://${req.get('host')}/api/auth/google/callback`,
+    redirect_uri: `${SERVER_URL}/api/auth/google/callback`,
     scope: 'openid email profile',
     response_type: 'code',
     state: state,
@@ -383,7 +384,7 @@ async function exchangeCodeForTokens(code, req) {
       client_secret: GOOGLE_CLIENT_SECRET,
       code: code,
       grant_type: 'authorization_code',
-      redirect_uri: `${req.protocol}://${req.get('host')}/api/auth/google/callback`
+      redirect_uri: `${SERVER_URL}/api/auth/google/callback`
     });
 
     const options = {
