@@ -84,6 +84,7 @@ router.get('/', auth, async (req, res) => {
       select: 'firstName lastName role'
     });
 
+    console.log('[Messages API] Returning conversations:', populatedConversations.length);
     res.json(populatedConversations);
   } catch (err) {
     console.error(err.message);

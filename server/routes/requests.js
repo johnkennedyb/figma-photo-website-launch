@@ -69,6 +69,7 @@ router.get('/', auth, async (req, res) => {
       return res.status(403).json({ msg: 'Access denied' });
     }
 
+    console.log('[Requests API] Returning requests:', requests.length);
     res.json(requests);
   } catch (err) {
     console.error(err.message);

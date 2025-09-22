@@ -73,9 +73,10 @@ router.get('/', auth, async (req, res) => {
   try {
     const { search, expertise, specialty, country, state, city } = req.query;
     
-    // Build search filter
+    // Build search filter - only show approved counselors
     let filter = { 
-      role: 'counselor' 
+      role: 'counselor',
+      approvalStatus: 'approved'
     };
     
     // Add search functionality
@@ -141,6 +142,7 @@ router.get('/', auth, async (req, res) => {
       };
     });
 
+    console.log('[Counselors API] Returning counselors:', counselors.length);
     res.json(counselors);
   } catch (err) {
     console.error(err.message);
@@ -225,7 +227,9 @@ router.get('/chats', auth, async (req, res) => {
 // @access  Public
 router.get('/:id', auth, async (req, res) => {
   try {
+    console.log('[Counselor Profile] Requested ID:', req.params.id);
     const counselor = await User.findOne({ _id: req.params.id, role: 'counselor' }).select('-password').lean();
+    console.log('[Counselor Profile] Found counselor:', counselor ? 'Yes' : 'No');
     if (!counselor) {
       return res.status(404).json({ msg: 'Counselor not found' });
     }
@@ -257,6 +261,7 @@ router.get('/:id', auth, async (req, res) => {
     };
     delete counselorProfile.password; // ensure password is not sent
 
+    console.log('[Counselor Profile] Returning profile for:', counselorProfile.firstName, counselorProfile.lastName);
     res.json(counselorProfile);
   } catch (err) {
     console.error(err.message);
