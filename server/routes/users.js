@@ -263,14 +263,79 @@ router.put('/counselor-onboarding', auth, async (req, res) => {
 // @desc    Update user's personal information
 // @access  Private
 router.put('/personal-info', auth, async (req, res) => {
-  // ... (implementation remains the same)
+  const {
+    firstName,
+    lastName,
+    phone,
+    dateOfBirth,
+    country,
+    city,
+    maritalStatus,
+    nationality
+  } = req.body;
+
+  const updateFields = {};
+  if (firstName) updateFields.firstName = firstName;
+  if (lastName) updateFields.lastName = lastName;
+  if (phone) updateFields.phone = phone;
+  if (dateOfBirth) updateFields.dateOfBirth = dateOfBirth;
+  if (country) updateFields.country = country;
+  if (city) updateFields.city = city;
+  if (maritalStatus) updateFields.maritalStatus = maritalStatus;
+  if (nationality) updateFields.nationality = nationality;
+
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: updateFields },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    res.json({ msg: 'Personal information updated successfully', user });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
 });
 
 // @route   PUT api/users/change-password
 // @desc    Change user password
 // @access  Private
 router.put('/change-password', auth, async (req, res) => {
-  // ... (implementation remains the same)
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ msg: 'Current password and new password are required' });
+  }
+
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // Check current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ msg: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update password
+    await User.findByIdAndUpdate(req.user.id, { password: hashedPassword });
+
+    res.json({ msg: 'Password changed successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
 });
 
 
