@@ -11,6 +11,10 @@ const Wallet = require('../models/Wallet');
 const Request = require('../models/Request');
 const Withdrawal = require('../models/Withdrawal');
 const { createVideoCall } = require('../helpers/videoCallHelper');
+const {
+  sendClientPaymentConfirmation,
+  sendCounsellorPayoutNotification,
+} = require('../utils/counsellingEmails');
 
 // @route   POST api/payment/create-checkout-session
 // @desc    Create a payment checkout session for booking
@@ -96,20 +100,28 @@ router.post('/create-checkout-session', auth, async (req, res) => {
       newSession.paymentReference = reference;
       await newSession.save();
 
-      const paystackResponse = await axios.post('https://api.paystack.co/transaction/initialize', {
-        email: client.email,
-        amount: priceInCents, // Paystack expects amount in Kobo
-        currency: 'NGN',
-        reference: reference,
-        metadata: { internalSessionId: newSession._id.toString() },
-        callback_url: `${process.env.CLIENT_URL}/payment/verify?provider=paystack&counselor_id=${counselorId}&session_id=${reference}`,
-      }, {
-        headers: {
-          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+      const paystackResponse = await axios.post(
+        'https://api.paystack.co/transaction/initialize',
+        {
+          email: client.email,
+          amount: priceInCents, // Paystack expects amount in Kobo
+          currency: 'NGN',
+          reference: reference,
+          metadata: { internalSessionId: newSession._id.toString() },
+          callback_url: `${process.env.CLIENT_URL}/payment/verify?provider=paystack&counselor_id=${counselorId}&session_id=${reference}`,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          },
         }
-      });
+      );
 
-      res.json({ provider: 'paystack', ...paystackResponse.data.data, url: paystackResponse.data.data.authorization_url });
+      res.json({
+        provider: 'paystack',
+        ...paystackResponse.data.data,
+        url: paystackResponse.data.data.authorization_url,
+      });
     }
 
   } catch (err) {
@@ -219,6 +231,28 @@ router.post('/stripe/webhook', express.raw({ type: 'application/json' }), async 
         io.to(counselorSocketId).emit('session-booked', session);
         io.to(counselorSocketId).emit('wallet-updated');
       }
+
+      // Send payment confirmation email to client
+      try {
+        const [clientUser, counselorUser] = await Promise.all([
+          User.findById(session.client),
+          User.findById(session.counselor),
+        ]);
+
+        if (clientUser && counselorUser) {
+          const dateStr = session.date ? session.date.toLocaleDateString() : '';
+          const timeStr = session.date ? session.date.toLocaleTimeString() : '';
+          await sendClientPaymentConfirmation({
+            email: clientUser.email,
+            first_name: clientUser.firstName || 'User',
+            counsellor_name: `${counselorUser.firstName || ''} ${counselorUser.lastName || ''}`.trim(),
+            date: dateStr,
+            time: timeStr,
+          });
+        }
+      } catch (emailErr) {
+        console.error('Error sending client payment confirmation (Stripe):', emailErr.message);
+      }
     } catch (dbError) {
       console.error('Error processing Stripe webhook:', dbError);
       return res.status(500).send('Internal Server Error');
@@ -248,7 +282,7 @@ router.post('/paystack/webhook', express.json(), async (req, res) => {
     console.log(`Processing Paystack charge.success for reference: ${reference}`);
 
     try {
-      const session = await Session.findOne({ paymentReference: reference }).populate('counselor', 'name email');
+      const session = await Session.findOne({ paymentReference: reference }).populate('counselor', 'firstName lastName email');
       
       if (!session) {
         console.error(`Webhook Error: Session not found with reference: ${reference}`);
@@ -286,8 +320,6 @@ router.post('/paystack/webhook', express.json(), async (req, res) => {
       await session.save();
       console.log(`Session ${session._id} status updated to paid.`);
 
-
-
       // Notify the client via WebSocket
       const io = req.io;
       const userSocketMap = req.userSocketMap;
@@ -307,6 +339,28 @@ router.post('/paystack/webhook', express.json(), async (req, res) => {
         console.log(`Sent session-booked and wallet-updated events to counselor ${session.counselor._id} via socket ${counselorSocketId}`);
       } else {
         console.log(`Counselor ${session.counselor._id} not connected via socket.`);
+      }
+
+      // Send payment confirmation email to client
+      try {
+        const [clientUser, counselorUser] = await Promise.all([
+          User.findById(session.client),
+          User.findById(session.counselor),
+        ]);
+
+        if (clientUser && counselorUser) {
+          const dateStr = session.date ? session.date.toLocaleDateString() : '';
+          const timeStr = session.date ? session.date.toLocaleTimeString() : '';
+          await sendClientPaymentConfirmation({
+            email: clientUser.email,
+            first_name: clientUser.firstName || 'User',
+            counsellor_name: `${counselorUser.firstName || ''} ${counselorUser.lastName || ''}`.trim(),
+            date: dateStr,
+            time: timeStr,
+          });
+        }
+      } catch (emailErr) {
+        console.error('Error sending client payment confirmation (Paystack):', emailErr.message);
       }
 
     } catch (err) {
@@ -351,6 +405,19 @@ router.post('/paystack-webhook', async (req, res) => {
         await wallet.save();
       } else if (event === 'transfer.success') {
         withdrawal.status = 'completed';
+
+        // Notify counselor about payout
+        try {
+          const counselorUser = await User.findById(withdrawal.user);
+          if (counselorUser) {
+            await sendCounsellorPayoutNotification({
+              email: counselorUser.email,
+              first_name: counselorUser.firstName || 'Counselor',
+            });
+          }
+        } catch (emailErr) {
+          console.error('Error sending counselor payout notification:', emailErr.message);
+        }
       }
 
       await withdrawal.save();

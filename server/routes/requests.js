@@ -4,6 +4,13 @@ const auth = require('../middleware/auth');
 const Request = require('../models/Request');
 const User = require('../models/User');
 const Session = require('../models/Session');
+const {
+  sendClientRequestSent,
+  sendCounsellorNewRequest,
+  sendClientRequestAccepted,
+  sendClientRequestRejected,
+  sendCounsellorRequestAcceptedConfirmation,
+} = require('../utils/counsellingEmails');
 
 // @route   POST api/requests
 // @desc    Create a connection request
@@ -34,6 +41,25 @@ router.post('/', auth, async (req, res) => {
     });
 
     await newRequest.save();
+
+    // Send emails to client and counselor
+    try {
+      await Promise.all([
+        sendClientRequestSent({
+          email: client.email,
+          first_name: client.firstName || 'User',
+          counsellor_name: `${counselor.firstName || ''} ${counselor.lastName || ''}`.trim(),
+        }),
+        sendCounsellorNewRequest({
+          email: counselor.email,
+          first_name: counselor.firstName || 'Counselor',
+          client_name: `${client.firstName || ''} ${client.lastName || ''}`.trim(),
+        }),
+      ]);
+    } catch (emailErr) {
+      console.error('Error sending request emails:', emailErr.message);
+    }
+
     res.json(newRequest);
   } catch (err) {
     console.error(err.message);
@@ -111,6 +137,37 @@ router.put('/:id', auth, async (req, res) => {
         });
         await newSession.save();
       }
+    }
+
+    // Send notification emails based on status
+    try {
+      const [client, counselor] = await Promise.all([
+        User.findById(request.client),
+        User.findById(request.counselor),
+      ]);
+
+      if (status === 'accepted') {
+        await Promise.all([
+          sendClientRequestAccepted({
+            email: client.email,
+            first_name: client.firstName || 'User',
+            counsellor_name: `${counselor.firstName || ''} ${counselor.lastName || ''}`.trim(),
+          }),
+          sendCounsellorRequestAcceptedConfirmation({
+            email: counselor.email,
+            first_name: counselor.firstName || 'Counselor',
+            client_name: `${client.firstName || ''} ${client.lastName || ''}`.trim(),
+          }),
+        ]);
+      } else if (status === 'declined') {
+        await sendClientRequestRejected({
+          email: client.email,
+          first_name: client.firstName || 'User',
+          counsellor_name: `${counselor.firstName || ''} ${counselor.lastName || ''}`.trim(),
+        });
+      }
+    } catch (emailErr) {
+      console.error('Error sending request status emails:', emailErr.message);
     }
 
     res.json(request);

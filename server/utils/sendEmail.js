@@ -1,32 +1,37 @@
-const nodemailer = require('nodemailer');
+const axios = require('axios');
 
+/**
+ * Send an email using the Maileroo HTTP Email API.
+ * This replaces the previous SMTP-based Nodemailer implementation.
+ *
+ * Expected env vars:
+ * - MAILEROO_SENDING_KEY: Maileroo Sending Key (required)
+ * - MAILEROO_FROM_EMAIL: Default from email, e.g. mail@match.quluub.com (optional)
+ * - MAILEROO_FROM_NAME:  Default from name, e.g. Quluub (optional)
+ */
 const sendEmail = async (options) => {
-  // Check if email configuration is available
-  if (!process.env.EMAIL_HOST || !process.env.EMAIL_USERNAME || !process.env.EMAIL_PASSWORD) {
-    throw new Error('Email configuration is missing. Please configure EMAIL_HOST, EMAIL_USERNAME, and EMAIL_PASSWORD in your environment variables.');
+  const apiKey = process.env.MAILEROO_SENDING_KEY;
+  if (!apiKey) {
+    throw new Error('Email configuration is missing. Please configure MAILEROO_SENDING_KEY in your environment variables.');
   }
 
-  // 1) Create a transporter using Mailtrap for development
-  const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
-    auth: {
-      user: process.env.EMAIL_USERNAME,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-  });
+  const fromEmail = process.env.MAILEROO_FROM_EMAIL || 'mail@match.quluub.com';
+  const fromName = process.env.MAILEROO_FROM_NAME || 'Quluub';
 
-  // 2) Define the email options
-  const mailOptions = {
-    from: 'Quluub Admin <admin@quluub.com>',
+  const payload = {
+    from: `${fromName} <${fromEmail}>`,
     to: options.email,
     subject: options.subject,
     text: options.message,
-    // html: options.html // You can also pass HTML content
+    html: options.html,
   };
 
-  // 3) Actually send the email
-  await transporter.sendMail(mailOptions);
+  await axios.post('https://smtp.maileroo.com/api/v2/emails', payload, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey,
+    },
+  });
 };
 
 module.exports = sendEmail;

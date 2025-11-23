@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 /**
- * Creates a Whereby video call room for a session.
+ * Creates a video call room for a session using the configured provider.
  * @param {object} session - The session object from the database.
  * @returns {Promise<string>} The URL of the created video call room.
  */
@@ -11,7 +11,7 @@ const createVideoCall = async (session) => {
     const sessionStart = new Date(session.date);
     const sessionEnd = new Date(sessionStart.getTime() + 2 * 60 * 60 * 1000); // 2 hours duration
 
-    console.log(`[VideoCallHelper] Creating Whereby meeting for session ${session._id}...`);
+    console.log(`[VideoCallHelper] Creating video meeting for session ${session._id}...`);
 
     const response = await axios.post(
       'https://api.whereby.dev/v1/meetings',
@@ -31,11 +31,11 @@ const createVideoCall = async (session) => {
       }
     );
 
-    console.log(`[VideoCallHelper] Successfully created Whereby meeting. Room URL: ${response.data.roomUrl}`);
+    console.log(`[VideoCallHelper] Successfully created video meeting. Room URL: ${response.data.roomUrl}`);
     return response.data.roomUrl;
   } catch (error) {
     console.error(
-      '[VideoCallHelper] Whereby API error:',
+      '[VideoCallHelper] Video call provider API error:',
       error.response ? error.response.data : error.message
     );
     // Re-throw the error to be handled by the calling function

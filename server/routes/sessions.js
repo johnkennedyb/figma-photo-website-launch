@@ -6,6 +6,7 @@ const Counselor = require('../models/Counselor');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
 const Review = require('../models/Review');
+const { sendClientSessionFeedbackRequest } = require('../utils/counsellingEmails');
 
 // @route   GET api/sessions
 // @desc    Get all sessions for a user (client or counselor)
@@ -108,6 +109,27 @@ router.put('/:id/complete', auth, async (req, res) => {
     } else {
         counselorWallet.balance += session.price;
         await counselorWallet.save();
+    }
+
+    // Send feedback request email to client after completion
+    try {
+      const [clientUser, counselorUser] = await Promise.all([
+        User.findById(session.client),
+        User.findById(session.counselor),
+      ]);
+
+      if (clientUser && counselorUser) {
+        const clientBase = process.env.CLIENT_URL || 'http://localhost:8080';
+        const feedbackLink = `${clientBase}/sessions/${session._id}/feedback`;
+        await sendClientSessionFeedbackRequest({
+          email: clientUser.email,
+          first_name: clientUser.firstName || 'User',
+          counsellor_name: `${counselorUser.firstName || ''} ${counselorUser.lastName || ''}`.trim(),
+          feedbackLink,
+        });
+      }
+    } catch (emailErr) {
+      console.error('Error sending session feedback request:', emailErr.message);
     }
 
     res.json(session);

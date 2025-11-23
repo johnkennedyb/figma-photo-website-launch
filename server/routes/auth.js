@@ -11,6 +11,10 @@ const sendEmail = require('../utils/sendEmail');
 const crypto = require('crypto');
 const https = require('https');
 const querystring = require('querystring');
+const {
+  sendClientWelcomeEmail,
+  sendCounsellorWelcomeEmail,
+} = require('../utils/counsellingEmails');
 
 // @route   GET api/auth/me
 // @desc    Get current authenticated user
@@ -77,6 +81,25 @@ router.post('/signup',
       const salt = await bcrypt.genSalt(10);
       user.password = await bcrypt.hash(password, salt);
       await user.save();
+
+      // Send welcome email based on role
+      try {
+        if (role === 'client') {
+          await sendClientWelcomeEmail({
+            email,
+            first_name: firstName,
+          });
+        } else if (role === 'counselor') {
+          const termsLink = process.env.COUNSELOR_TERMS_URL || `${process.env.CLIENT_URL || 'http://localhost:8080'}/counselor-terms`;
+          await sendCounsellorWelcomeEmail({
+            email,
+            first_name: firstName,
+            termsLink,
+          });
+        }
+      } catch (emailErr) {
+        console.error('Error sending welcome email:', emailErr.message);
+      }
 
       // Issue token directly for all roles
       const payload = {
@@ -181,7 +204,7 @@ router.post('/forgot-password', async (req, res) => {
     user.passwordResetExpires = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    // Create reset URL (use counselor-specific route for counselors)
+    // Create reset URL (role-specific pages for better UX)
     const clientBase = process.env.CLIENT_URL || 'http://localhost:8080';
     const resetPath = user.role === 'counselor' ? '/counselor-reset-password' : '/reset-password';
     const resetURL = `${clientBase}${resetPath}?token=${resetToken}`;
