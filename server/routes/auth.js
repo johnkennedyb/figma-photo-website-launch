@@ -14,6 +14,7 @@ const querystring = require('querystring');
 const {
   sendClientWelcomeEmail,
   sendCounsellorWelcomeEmail,
+  wrapWithLayout,
 } = require('../utils/counsellingEmails');
 
 // @route   GET api/auth/me
@@ -68,26 +69,48 @@ router.post('/signup',
         return res.status(400).json({ msg: 'User already exists' });
       }
 
-      // All users are auto-verified now
+      // Counselors are auto-verified; clients require email verification
       user = new User({
         firstName,
         lastName,
         email,
         password,
         role,
-        isVerified: true, // Auto-verify all roles
+        isVerified: role === 'counselor',
       });
 
       const salt = await bcrypt.genSalt(10);
       user.password = await bcrypt.hash(password, salt);
+
+      // Generate email verification token for clients
+      let verificationToken;
+      if (role === 'client') {
+        verificationToken = user.createEmailVerificationToken();
+      }
+
       await user.save();
 
-      // Send welcome email based on role
+      // Send appropriate email based on role
       try {
-        if (role === 'client') {
-          await sendClientWelcomeEmail({
+        if (role === 'client' && verificationToken) {
+          const clientBase = process.env.CLIENT_URL || 'http://localhost:8080';
+          const verifyURL = `${clientBase}/verify-email?token=${verificationToken}`;
+          const message = `Please verify your email by visiting the link below:\n\n${verifyURL}\n\nThis link expires in 10 minutes.`;
+          await sendEmail({
             email,
-            first_name: firstName,
+            subject: 'Verify your email - Quluub',
+            message,
+            html: wrapWithLayout(`
+              <p>Dear ${firstName || 'User'},</p>
+              <p>Welcome to Quluub. Please verify your email address to secure your account.</p>
+              <p style="text-align:center; margin:24px 0;">
+                <a href="${verifyURL}" style="display:inline-block; background:#0ea5a8; color:#ffffff; text-decoration:none; padding:12px 20px; border-radius:8px; font-weight:600;">Verify Email</a>
+              </p>
+              <p>Or copy and paste this link into your browser:<br/>
+                <a href="${verifyURL}" style="color:#0ea5a8; word-break:break-all;">${verifyURL}</a>
+              </p>
+              <p>This link will expire in 10 minutes.</p>
+            `, { subject: 'Verify your email - Quluub' }),
           });
         } else if (role === 'counselor') {
           const termsLink = process.env.COUNSELOR_TERMS_URL || `${process.env.CLIENT_URL || 'http://localhost:8080'}/counselor-terms`;
@@ -98,7 +121,7 @@ router.post('/signup',
           });
         }
       } catch (emailErr) {
-        console.error('Error sending welcome email:', emailErr.message);
+        console.error('Error sending signup email:', emailErr.message);
       }
 
       // Issue token directly for all roles
@@ -216,6 +239,17 @@ router.post('/forgot-password', async (req, res) => {
         email: user.email,
         subject: 'Password Reset Request - Quluub',
         message,
+        html: wrapWithLayout(`
+          <p>Dear ${user.firstName || 'User'},</p>
+          <p>You requested a password reset. Click the button below to reset your password.</p>
+          <p style="text-align:center; margin:24px 0;">
+            <a href="${resetURL}" style="display:inline-block; background:#0ea5a8; color:#ffffff; text-decoration:none; padding:12px 20px; border-radius:8px; font-weight:600;">Reset Password</a>
+          </p>
+          <p>Or copy and paste this link into your browser:<br/>
+            <a href="${resetURL}" style="color:#0ea5a8; word-break:break-all;">${resetURL}</a>
+          </p>
+          <p>If you didn’t request this, you can safely ignore this email.</p>
+        `, { subject: 'Password Reset Request - Quluub' }),
       });
 
       res.status(200).json({ msg: 'Password reset email sent' });

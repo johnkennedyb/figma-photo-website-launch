@@ -3,16 +3,137 @@ const sendEmail = require('./sendEmail');
 // Helper to wrap body with a basic HTML layout.
 // If you have a dedicated matchmaking header/footer helper, you can
 // replace this implementation with that function to ensure identical styling.
-const wrapWithLayout = (body) => {
+const wrapWithLayout = (body, options = {}) => {
+  const rawTitle = options.subject || 'Quluub';
+  const headerTitle = typeof rawTitle === 'string' ? rawTitle.replace(/\s*-\s*Quluub$/i, '') : 'Quluub';
   return `<!DOCTYPE html>
 <html>
-  <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #222;">
-    <div style="max-width: 600px; margin: 0 auto; padding: 16px;">
-      ${body}
-    </div>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body style="margin:0; padding:0; background-color:#f6f7f9;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f6f7f9;" data-quluub-email-wrapper="1">
+      <tr>
+        <td align="center" style="padding:0;">
+          <!-- Header Banner (Full Width, Image Background) -->
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#0ea5a8;">
+            <tr>
+              <td align="center" style="padding:0;">
+                <!--[if gte mso 9]>
+                <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:1000px;height:140px;">
+                  <v:fill type="frame" src="https://res.cloudinary.com/dw7w2at8k/image/upload/v1763992958/Copy_of_Quluub_Email_Header_y8f1ln.png" color="#0ea5a8" />
+                  <v:textbox inset="0,0,0,0">
+                <![endif]-->
+                <div style="background-image:url('https://res.cloudinary.com/dw7w2at8k/image/upload/v1763992958/Copy_of_Quluub_Email_Header_y8f1ln.png'); background-color:#0ea5a8; background-size:cover; background-position:center; background-repeat:no-repeat; min-height:140px;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; margin:0 auto;">
+                    <tr>
+                      <td align="center" style="height:140px; padding:0 20px; color:#ffffff; font-family: Arial, sans-serif; font-size:24px; font-weight:bold; vertical-align:middle;">
+                        ${headerTitle}
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+                <!--[if gte mso 9]>
+                  </v:textbox>
+                </v:rect>
+                <![endif]-->
+              </td>
+            </tr>
+          </table>
+          
+          <!-- Email Content Container -->
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; margin:0 auto; background-color:#ffffff;">
+            <tr>
+              <td style="padding:30px 24px; font-family: Arial, sans-serif; font-size:16px; line-height:1.6; color:#222222;">
+                ${body}
+              </td>
+            </tr>
+          </table>
+
+          <!-- Footer Banner (Full Width, Image Background) -->
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#fff7ed; margin-top:20px;">
+            <tr>
+              <td align="center" style="padding:0;">
+                <!--[if gte mso 9]>
+                <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:1000px;height:160px;">
+                  <v:fill type="frame" src="https://res.cloudinary.com/dw7w2at8k/image/upload/v1763992958/Copy_of_Quluub_Email_Header_1_wnflbn.png" color="#fff7ed" />
+                  <v:textbox inset="0,0,0,0">
+                <![endif]-->
+                <div style="background-image:url('https://res.cloudinary.com/dw7w2at8k/image/upload/v1763992958/Copy_of_Quluub_Email_Header_1_wnflbn.png'); background-color:#fff7ed; background-size:cover; background-position:center; background-repeat:no-repeat; min-height:160px;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; margin:0 auto;">
+                    <tr>
+                      <td align="center" valign="middle" style="height:160px; padding:0 20px;">
+                        <!-- Social Icons on banner -->
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto;">
+                          <tr>
+                            <td align="center" valign="middle" style="padding:0 6px;">
+                              <a href="https://x.com/_Quluub">
+                                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                                  <tr>
+                                    <td width="32" height="32" align="center" valign="middle" style="border-radius:16px; background:#ffffff; text-align:center;">
+                                      <img src="https://res.cloudinary.com/dw7w2at8k/image/upload/v1764086149/twitter-removebg-preview_qxwtfr.png" width="20" height="20" alt="Twitter" style="display:block; border:0; outline:none; text-decoration:none;" />
+                                    </td>
+                                  </tr>
+                                </table>
+                              </a>
+                            </td>
+                            <td align="center" valign="middle" style="padding:0 6px;">
+                              <a href="https://www.tiktok.com/@_quluub">
+                                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                                  <tr>
+                                    <td width="32" height="32" align="center" valign="middle" style="border-radius:16px; background:#ffffff; text-align:center;">
+                                      <img src="https://res.cloudinary.com/dw7w2at8k/image/upload/v1764085476/tik-tok-removebg-preview_idlwaj.png" width="20" height="20" alt="TikTok" style="display:block; border:0; outline:none; text-decoration:none;" />
+                                    </td>
+                                  </tr>
+                                </table>
+                              </a>
+                            </td>
+                            <td align="center" valign="middle" style="padding:0 6px;">
+                              <a href="https://web.facebook.com/Quluubplatform">
+                                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                                  <tr>
+                                    <td width="32" height="32" align="center" valign="middle" style="border-radius:16px; background:#ffffff; text-align:center;">
+                                      <img src="https://res.cloudinary.com/dw7w2at8k/image/upload/v1764086124/facebook-removebg-preview_obhfrj.png" width="20" height="20" alt="Facebook" style="display:block; border:0; outline:none; text-decoration:none;" />
+                                    </td>
+                                  </tr>
+                                </table>
+                              </a>
+                            </td>
+                            <td align="center" valign="middle" style="padding:0 6px;">
+                              <a href="https://www.youtube.com/@quluubplatform">
+                                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                                  <tr>
+                                    <td width="32" height="32" align="center" valign="middle" style="border-radius:16px; background:#ffffff; text-align:center;">
+                                      <img src="https://res.cloudinary.com/dw7w2at8k/image/upload/v1764085486/youtube-removebg-preview_v0tmln.png" width="20" height="20" alt="YouTube" style="display:block; border:0; outline:none; text-decoration:none;" />
+                                    </td>
+                                  </tr>
+                                </table>
+                              </a>
+                            </td>
+                          </tr>
+                        </table>
+                        <div style="font-size:12px; color:#0f172a; font-family: Arial, sans-serif; margin-top:10px;">
+                          © 2024 Quluub. All rights reserved.
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+                <!--[if gte mso 9]>
+                  </v:textbox>
+                </v:rect>
+                <![endif]-->
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>`;
 };
+
+exports.wrapWithLayout = wrapWithLayout;
 
 // -------------------- CLIENT EMAILS --------------------
 
@@ -29,7 +150,7 @@ exports.sendClientWelcomeEmail = async ({ email, first_name }) => {
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendClientEmailOtp = async ({ email, first_name, otp }) => {
@@ -44,7 +165,7 @@ exports.sendClientEmailOtp = async ({ email, first_name, otp }) => {
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendClientRequestSent = async ({ email, first_name, counsellor_name }) => {
@@ -58,7 +179,7 @@ exports.sendClientRequestSent = async ({ email, first_name, counsellor_name }) =
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendClientRequestAccepted = async ({ email, first_name, counsellor_name }) => {
@@ -72,7 +193,7 @@ exports.sendClientRequestAccepted = async ({ email, first_name, counsellor_name 
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendClientRequestRejected = async ({ email, first_name, counsellor_name }) => {
@@ -86,7 +207,7 @@ exports.sendClientRequestRejected = async ({ email, first_name, counsellor_name 
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendClientCounsellorNoResponseReminder = async ({ email, first_name, counsellor_name }) => {
@@ -100,7 +221,7 @@ exports.sendClientCounsellorNoResponseReminder = async ({ email, first_name, cou
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendClientSessionReminder = async ({ email, first_name, counsellor_name, date, time }) => {
@@ -114,7 +235,7 @@ exports.sendClientSessionReminder = async ({ email, first_name, counsellor_name,
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendClientPaymentConfirmation = async ({ email, first_name, counsellor_name, date, time }) => {
@@ -131,7 +252,7 @@ exports.sendClientPaymentConfirmation = async ({ email, first_name, counsellor_n
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendClientSessionFeedbackRequest = async ({ email, first_name, counsellor_name, feedbackLink }) => {
@@ -145,7 +266,7 @@ exports.sendClientSessionFeedbackRequest = async ({ email, first_name, counsello
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendClientAutoMatchNotification = async ({ email, first_name, counsellor_name }) => {
@@ -159,7 +280,7 @@ exports.sendClientAutoMatchNotification = async ({ email, first_name, counsellor
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendClientInactivityReminder = async ({ email, first_name }) => {
@@ -173,7 +294,7 @@ exports.sendClientInactivityReminder = async ({ email, first_name }) => {
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendClientSubscriptionExpiryReminder = async ({ email, first_name, expiry_date }) => {
@@ -187,7 +308,7 @@ exports.sendClientSubscriptionExpiryReminder = async ({ email, first_name, expir
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 // -------------------- COUNSELLOR EMAILS --------------------
@@ -205,7 +326,7 @@ exports.sendCounsellorWelcomeEmail = async ({ email, first_name, termsLink }) =>
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendCounsellorEmailOtp = async ({ email, first_name, otp }) => {
@@ -220,7 +341,7 @@ exports.sendCounsellorEmailOtp = async ({ email, first_name, otp }) => {
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendCounsellorNewRequest = async ({ email, first_name, client_name }) => {
@@ -234,7 +355,7 @@ exports.sendCounsellorNewRequest = async ({ email, first_name, client_name }) =>
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendCounsellorRequestReminder = async ({ email, first_name, client_name }) => {
@@ -247,7 +368,7 @@ exports.sendCounsellorRequestReminder = async ({ email, first_name, client_name 
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendCounsellorRequestAcceptedConfirmation = async ({ email, first_name, client_name }) => {
@@ -261,7 +382,7 @@ exports.sendCounsellorRequestAcceptedConfirmation = async ({ email, first_name, 
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendCounsellorSessionReminder = async ({ email, first_name, client_name, date, time }) => {
@@ -275,7 +396,7 @@ exports.sendCounsellorSessionReminder = async ({ email, first_name, client_name,
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 // Not wired for now, but template is available if needed.
@@ -290,7 +411,7 @@ exports.sendCounsellorNewReviewNotification = async ({ email, first_name }) => {
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendCounsellorInactivityWarning = async ({ email, first_name }) => {
@@ -303,7 +424,7 @@ exports.sendCounsellorInactivityWarning = async ({ email, first_name }) => {
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };
 
 exports.sendCounsellorPayoutNotification = async ({ email, first_name }) => {
@@ -317,5 +438,5 @@ exports.sendCounsellorPayoutNotification = async ({ email, first_name }) => {
     <p>JazaakumuLlahu khairan,<br/>The Quluub Team</p>
   `;
 
-  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody) });
+  await sendEmail({ email, subject, message: text, html: wrapWithLayout(htmlBody, { subject }) });
 };

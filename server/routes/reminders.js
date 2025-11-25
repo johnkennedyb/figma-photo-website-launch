@@ -5,6 +5,7 @@ const admin = require('../middleware/admin');
 const User = require('../models/User');
 const sendEmail = require('../utils/sendEmail');
 const cron = require('node-cron');
+const { wrapWithLayout } = require('../utils/counsellingEmails');
 
 // @route   POST api/reminders/schedule
 // @desc    Schedule automated reminder
@@ -124,15 +125,20 @@ async function sendScheduledReminder(reminder) {
 
     const users = await User.find(filter).select('email firstName lastName');
 
-    const emailPromises = users.map(user => 
-      sendEmail({
+    const emailPromises = users.map(user => {
+      const textMsg = reminder.message
+        .replace(/{{firstName}}/g, user.firstName || 'User')
+        .replace(/{{lastName}}/g, user.lastName || '');
+      return sendEmail({
         email: user.email,
         subject: reminder.subject,
-        message: reminder.message
-          .replace(/{{firstName}}/g, user.firstName || 'User')
-          .replace(/{{lastName}}/g, user.lastName || ''),
-      }).catch(err => console.error(`Failed to send reminder to ${user.email}:`, err))
-    );
+        message: textMsg,
+        html: wrapWithLayout(`
+          <p>Dear ${user.firstName || 'User'},</p>
+          <div style="white-space:pre-line;">${textMsg.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+        `),
+      }).catch(err => console.error(`Failed to send reminder to ${user.email}:`, err));
+    });
 
     await Promise.allSettled(emailPromises);
     console.log(`Sent reminder to ${users.length} users`);

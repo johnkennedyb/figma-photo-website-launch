@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { check, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
+const { wrapWithLayout } = require('../utils/counsellingEmails');
 
 // All specific routes should be defined BEFORE the generic /:id route
 
@@ -421,7 +422,13 @@ router.post('/support/contact', auth, async (req, res) => {
       await sendEmail({
         email: 'support@quluub.com',
         subject: `Support Request: ${subject}`,
-        message: `From: ${user.firstName} ${user.lastName} (${user.email})\nRole: ${user.role}\n\nMessage:\n${message}`
+        message: `From: ${user.firstName} ${user.lastName} (${user.email})\nRole: ${user.role}\n\nMessage:\n${message}`,
+        html: wrapWithLayout(`
+          <p><strong>Support request</strong></p>
+          <p><strong>From:</strong> ${user.firstName || ''} ${user.lastName || ''} (${user.email})<br/>
+          <strong>Role:</strong> ${user.role}</p>
+          <p style="white-space:pre-line;">${(message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+        `)
       });
     } catch (emailErr) {
       console.error('Failed to send support email:', emailErr);
